@@ -1,0 +1,414 @@
+name: PR Lint
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  check-pr-title:
+    name: Validate PR Title
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Validate PR title format
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          #!/bin/bash
+          set -e
+
+          echo "========================================"
+          echo "Validating PR title..."
+          echo "========================================"
+          echo ""
+          echo "PR Title: $PR_TITLE"
+          echo ""
+
+          ERRORS=()
+          WARNINGS=()
+
+          # Valid commit types from conventional commits spec
+          VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
+
+          # AI attribution patterns
+          AI_PATTERNS=(
+            "[Cc]laude"
+            "[Gg][Pp][Tt]"
+            "[Cc]opilot"
+            "🤖"
+            "[Aa][Ii]-[Gg]enerated"
+            "[Aa][Ii] [Gg]enerated"
+          )
+
+          # Check 1: Conventional commit format
+          if ! echo "$PR_TITLE" | grep -qE "^($VALID_TYPES)(\([a-zA-Z0-9_-]+\))?!?: .+$"; then
+            ERRORS+=("Invalid PR title format.")
+            ERRORS+=("  Expected: <type>(<scope>): <subject>")
+            ERRORS+=("  Example: feat(consensus): add validator monitoring")
+            ERRORS+=("  Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert")
+          fi
+
+          # Check 2: Title length
+          TITLE_LEN=${#PR_TITLE}
+          if [ "$TITLE_LEN" -gt 72 ]; then
+            ERRORS+=("PR title too long ($TITLE_LEN chars). Maximum: 72 characters.")
+          elif [ "$TITLE_LEN" -gt 50 ]; then
+            WARNINGS+=("PR title exceeds 50 chars ($TITLE_LEN chars). Consider shortening.")
+          fi
+
+          # Check 3: AI attribution in title
+          for pattern in "${AI_PATTERNS[@]}"; do
+            if echo "$PR_TITLE" | grep -qE "$pattern"; then
+              ERRORS+=("AI reference detected in PR title. Remove any AI tool mentions.")
+            fi
+          done
+
+          # Check 4: Emojis in title
+          if echo "$PR_TITLE" | grep -q "🤖\|🚀\|✨\|🐛\|📝\|🔧\|♻️\|🎨\|⚡\|🔥\|🩹\|✅\|🔒\|📦\|👷\|💚\|⬆️\|⬇️\|🏗️"; then
+            ERRORS+=("Emojis detected in PR title. Remove all emojis.")
+          fi
+
+          # Check 5: Vague words
+          VAGUE_WORDS="[Ii]mprove|[Ee]nhance|[Uu]pdate|[Mm]odify|[Cc]hange|[Aa]djust"
+          SUBJECT=$(echo "$PR_TITLE" | sed -E "s/^($VALID_TYPES)(\([a-zA-Z0-9_-]+\))?: //" || true)
+          if echo "$SUBJECT" | grep -qE "^($VAGUE_WORDS) "; then
+            WARNINGS+=("PR title starts with vague word. Be specific about what changed.")
+            WARNINGS+=("  Instead of 'improve X', say what improvement (e.g., 'cache X for faster lookup')")
+          fi
+
+          echo "========================================"
+          echo "Results"
+          echo "========================================"
+
+          if [ ${#WARNINGS[@]} -gt 0 ]; then
+            echo ""
+            echo "⚠️  Warnings (${#WARNINGS[@]}):"
+            for warning in "${WARNINGS[@]}"; do
+              echo "  $warning"
+            done
+          fi
+
+          if [ ${#ERRORS[@]} -gt 0 ]; then
+            echo ""
+            echo "❌ Errors (${#ERRORS[@]}):"
+            for error in "${ERRORS[@]}"; do
+              echo "  $error"
+            done
+            echo ""
+            echo "========================================"
+            echo "PR title rules (becomes commit on squash merge):"
+            echo "  - Format: <type>(<scope>): <subject>"
+            echo "  - Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+            echo "  - Length: ≤50 chars recommended, ≤72 max"
+            echo "  - NO AI references (Claude, GPT, Copilot, etc.)"
+            echo "  - NO emojis"
+            echo "  - Be specific (avoid 'improve', 'update', 'enhance')"
+            echo "========================================"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ PR title is valid!"
+
+  check-commits:
+    name: Validate Commit Messages
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get commits in PR
+        id: commits
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          echo "Checking commits from $BASE_SHA to $HEAD_SHA"
+
+          # Get list of commit SHAs
+          COMMITS=$(git rev-list "$BASE_SHA".."$HEAD_SHA")
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Validate commit messages
+        run: |
+          #!/bin/bash
+          set -e
+
+          # Valid commit types from conventional commits spec
+          VALID_TYPES="feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert"
+
+          # AI attribution patterns (case insensitive)
+          AI_PATTERNS=(
+            "Co-Authored-By:.*[Cc]laude"
+            "Co-Authored-By:.*[Gg][Pp][Tt]"
+            "Co-Authored-By:.*[Cc]opilot"
+            "Co-Authored-By:.*[Aa]nthropic"
+            "Co-Authored-By:.*[Oo]pen[Aa][Ii]"
+            "Co-Authored-By:.*[Aa][Ii]"
+            "Co-Authored-By:.*noreply@anthropic"
+            "[Gg]enerated by"
+            "[Gg]enerated with"
+            "[Cc]reated by [Cc]laude"
+            "[Cc]reated with [Cc]laude"
+            "[Cc]reated by [Gg][Pp][Tt]"
+            "[Cc]reated with [Gg][Pp][Tt]"
+            "[Cc]laude [Cc]ode"
+            "[Cc]laude-[Cc]ode"
+            "🤖"
+          )
+
+          # Emoji pattern (common emojis that might appear in commits)
+          EMOJI_PATTERN="[\U0001F300-\U0001F9FF]|[\U00002600-\U000027BF]|[\U0001F600-\U0001F64F]|[\U0001F680-\U0001F6FF]"
+
+          # Ticket reference patterns
+          TICKET_PATTERNS=(
+            "[Ff]ixes #[0-9]+"
+            "[Cc]loses #[0-9]+"
+            "[Rr]esolves #[0-9]+"
+            "[Pp]art of [A-Z]+-[0-9]+"
+            "[Rr]elated to [A-Z]+-[0-9]+"
+            "[Ff]ixes [A-Z]+-[0-9]+"
+          )
+
+          ERRORS=()
+          WARNINGS=()
+
+          validate_commit() {
+            local sha="$1"
+            local message
+            message=$(git log --format=%B -n 1 "$sha")
+            local title
+            title=$(echo "$message" | head -n 1)
+            local body
+            body=$(echo "$message" | tail -n +2)
+            local short_sha
+            short_sha=$(echo "$sha" | cut -c1-7)
+
+            echo "Checking commit $short_sha: $title"
+
+            # Check 1: Conventional commit format
+            if ! echo "$title" | grep -qE "^($VALID_TYPES)(\([a-zA-Z0-9_-]+\))?!?: .+$"; then
+              ERRORS+=("[$short_sha] Invalid format. Expected: <type>(<scope>): <subject>")
+              ERRORS+=("  Title: '$title'")
+              ERRORS+=("  Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert")
+            fi
+
+            # Check 2: Title length (≤ 50 chars recommended, > 72 is error)
+            local title_len=${#title}
+            if [ "$title_len" -gt 72 ]; then
+              ERRORS+=("[$short_sha] Title too long ($title_len chars). Maximum: 72 chars")
+            elif [ "$title_len" -gt 50 ]; then
+              WARNINGS+=("[$short_sha] Title exceeds 50 chars ($title_len chars). Consider shortening.")
+            fi
+
+            # Check 3: AI attribution (STRICT - this is the main concern)
+            for pattern in "${AI_PATTERNS[@]}"; do
+              if echo "$message" | grep -qE "$pattern"; then
+                ERRORS+=("[$short_sha] AI attribution detected. Remove: '$pattern'")
+                ERRORS+=("  Commits must not contain AI tool references, Co-Authored-By with AI names, or AI emojis.")
+              fi
+            done
+
+            # Check 4: Emojis in commit message
+            if echo "$message" | grep -qP "$EMOJI_PATTERN" 2>/dev/null || echo "$message" | grep -q "🤖\|🚀\|✨\|🐛\|📝\|🔧\|♻️\|🎨\|⚡\|🔥\|🩹\|✅\|🔒\|📦\|👷\|💚\|⬆️\|⬇️\|🏗️"; then
+              ERRORS+=("[$short_sha] Emojis detected in commit message. Remove all emojis.")
+            fi
+
+            # Check 5: Ticket references in body (not allowed in commits, only in PRs)
+            for pattern in "${TICKET_PATTERNS[@]}"; do
+              if echo "$body" | grep -qE "$pattern"; then
+                WARNINGS+=("[$short_sha] Ticket reference in commit body. Move to PR description instead.")
+              fi
+            done
+
+            # Check 6: Empty or whitespace-only subject
+            local subject
+            subject=$(echo "$title" | sed -E "s/^($VALID_TYPES)(\([a-zA-Z0-9_-]+\))?: //" || true)
+            if [ -z "$subject" ] || [ "$subject" = "$title" ]; then
+              # Already caught by format check, skip
+              :
+            elif echo "$subject" | grep -qE "^\s*$"; then
+              ERRORS+=("[$short_sha] Empty subject after type/scope.")
+            fi
+          }
+
+          # Read commits from previous step
+          COMMITS="${{ steps.commits.outputs.commits }}"
+
+          if [ -z "$COMMITS" ]; then
+            echo "No commits to check."
+            exit 0
+          fi
+
+          echo "========================================"
+          echo "Validating commit messages..."
+          echo "========================================"
+          echo ""
+
+          while IFS= read -r sha; do
+            if [ -n "$sha" ]; then
+              validate_commit "$sha"
+              echo ""
+            fi
+          done <<< "$COMMITS"
+
+          echo "========================================"
+          echo "Results"
+          echo "========================================"
+
+          if [ ${#WARNINGS[@]} -gt 0 ]; then
+            echo ""
+            echo "⚠️  Warnings (${#WARNINGS[@]}):"
+            for warning in "${WARNINGS[@]}"; do
+              echo "  $warning"
+            done
+          fi
+
+          if [ ${#ERRORS[@]} -gt 0 ]; then
+            echo ""
+            echo "❌ Errors (${#ERRORS[@]}):"
+            for error in "${ERRORS[@]}"; do
+              echo "  $error"
+            done
+            echo ""
+            echo "========================================"
+            echo "Commit message rules:"
+            echo "  - Format: <type>(<scope>): <subject>"
+            echo "  - Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+            echo "  - Title: ≤50 chars recommended, ≤72 max"
+            echo "  - NO AI attribution (Co-Authored-By with AI, 🤖, 'Generated by', etc.)"
+            echo "  - NO emojis"
+            echo "  - NO ticket references in body (use PR description)"
+            echo "========================================"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All commit messages are valid!"
+
+  check-pr-body:
+    name: Validate PR Body
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Check if bot
+        id: bot-check
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          if [[ "$PR_AUTHOR" =~ \[bot\]$ ]] || [[ "$PR_AUTHOR" =~ -bot$ ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "Skipping PR body check for bot: $PR_AUTHOR"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate PR body
+        if: steps.bot-check.outputs.skip != 'true'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          #!/bin/bash
+          set -e
+
+          echo "========================================"
+          echo "Validating PR body..."
+          echo "========================================"
+          echo ""
+
+          ERRORS=()
+
+          # Check 1: PR body is not empty
+          if [ -z "$PR_BODY" ] || [ -z "$(echo "$PR_BODY" | tr -d '[:space:]')" ]; then
+            ERRORS+=("PR body is empty. Please fill out the PR template.")
+            echo "========================================"
+            echo "Results"
+            echo "========================================"
+            echo ""
+            echo "❌ Errors (1):"
+            echo "  ${ERRORS[0]}"
+            echo ""
+            echo "========================================"
+            echo "PR body rules:"
+            echo "  - Fill out all sections from the PR template"
+            echo "  - Replace placeholder text with real content"
+            echo "  - Check at least one box in Types of Changes"
+            echo "  - Check at least one box in Checklist"
+            echo "========================================"
+            exit 1
+          fi
+
+          # Helper: extract content between a section header and the next ## header
+          extract_section() {
+            local header="$1"
+            echo "$PR_BODY" | awk -v h="$header" '
+              $0 == h { found=1; next }
+              found && /^## / { exit }
+              found { print }
+            '
+          }
+
+          # Check 2: Required section headers
+          REQUIRED_SECTIONS=("## Description" "## Release Notes" "## Types of Changes" "## Checklist")
+          for section in "${REQUIRED_SECTIONS[@]}"; do
+            if ! echo "$PR_BODY" | grep -qF "$section"; then
+              ERRORS+=("Missing section: '$section'")
+            fi
+          done
+
+          # Check 3: Description has real content (not placeholder)
+          DESC_CONTENT=$(extract_section "## Description")
+          if echo "$DESC_CONTENT" | grep -qF "[Write 2-3 sentences"; then
+            ERRORS+=("Description still has placeholder text. Replace '[Write 2-3 sentences...]' with real content.")
+          elif [ -z "$(echo "$DESC_CONTENT" | tr -d '[:space:]')" ]; then
+            ERRORS+=("Description section is empty. Write 2-3 sentences summarizing what changed.")
+          fi
+
+          # Check 4: Release Notes placeholder removed (empty section is fine)
+          RELEASE_CONTENT=$(extract_section "## Release Notes")
+          if echo "$RELEASE_CONTENT" | grep -qF "[Write a concise, user-facing summary"; then
+            ERRORS+=("Release Notes still has placeholder text. Replace with real notes or leave empty for config-only PRs.")
+          fi
+
+          # Check 5: At least one Types of Changes checkbox checked
+          TYPES_CONTENT=$(extract_section "## Types of Changes")
+          if ! echo "$TYPES_CONTENT" | grep -qi "\[x\]"; then
+            ERRORS+=("No checkbox checked in Types of Changes. Check at least one type.")
+          fi
+
+          # Check 6: At least one Checklist checkbox checked
+          CHECKLIST_CONTENT=$(extract_section "## Checklist")
+          if ! echo "$CHECKLIST_CONTENT" | grep -qi "\[x\]"; then
+            ERRORS+=("No checkbox checked in Checklist. Check at least one item.")
+          fi
+
+          echo "========================================"
+          echo "Results"
+          echo "========================================"
+
+          if [ ${#ERRORS[@]} -gt 0 ]; then
+            echo ""
+            echo "❌ Errors (${#ERRORS[@]}):"
+            for error in "${ERRORS[@]}"; do
+              echo "  $error"
+            done
+            echo ""
+            echo "========================================"
+            echo "PR body rules:"
+            echo "  - Fill out all sections from the PR template"
+            echo "  - Replace placeholder text with real content"
+            echo "  - Check at least one box in Types of Changes"
+            echo "  - Check at least one box in Checklist"
+            echo "========================================"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ PR body is valid!"
