@@ -1,0 +1,56 @@
+# Collaboration: skill dependencies and invocation triggers
+#
+# This skill operates standalone -- no orchestrator dependency.
+# Users invoke it directly via /linear.
+
+name: linear
+version: "1.0.0"
+
+dependencies: []
+
+composition:
+  - when: "Direct issue creation"
+    sequence:
+      - linear
+
+  - when: "Creating an issue from a plan or analysis"
+    sequence:
+      - linear
+
+triggers:
+  - pattern: "create.*linear.*issue|create.*ticket|new.*issue.*linear"
+    suggest: linear
+
+  - pattern: "add.*to.*backlog|create.*backlog.*item"
+    suggest: linear
+
+  - pattern: "log.*issue|file.*bug|report.*bug"
+    suggest: linear
+
+  - pattern: "convert.*plan.*to.*issue|plan.*to.*linear"
+    suggest: linear
+
+  - pattern: "/linear"
+    suggest: linear
+
+complements:
+  - skill: workflow
+    relationship: "Workflow can reference Linear issue IDs for branch naming"
+  - skill: pr-create
+    relationship: "PR descriptions can reference Linear issue URLs"
+
+boundaries:
+  owns:
+    - "Linear issue creation and field mapping"
+    - "Team and project lookup in Linear"
+    - "Issue label and priority assignment"
+    - "Converting analysis or plans into structured Linear issues"
+  defers_to:
+    - "Branch creation from issues -> workflow"
+    - "PR linking to issues -> pr-create"
+    - "Issue status updates from CI results -> future automation"
+  extension_points:
+    - "Future E2E-failure skills can auto-create Linear issues from test failures"
+    - "Future deployment skills can update Linear issue status on successful deploy"
+    - "Future monitoring skills can create incident-linked Linear issues from alerts"
+    - "Future triage skills can auto-assign priority and labels based on issue content"

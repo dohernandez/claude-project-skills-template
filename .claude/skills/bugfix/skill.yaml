@@ -1,0 +1,145 @@
+kind: methodology
+ownership: engineering
+stop_hook: null
+
+description: |
+  Structured debugging methodology for fixing bugs. Ensures bugs are properly
+  understood before fixing, root-caused with evidence, and fixed with minimal
+  changes.
+
+  Phases: Reproduce -> Plan -> Fix -> Verify
+
+inputs:
+  - name: bug_description
+    description: Description of the bug from ticket or user
+    required: true
+
+  - name: reproduction_steps
+    description: Steps to reproduce the bug
+    required: false
+
+outputs:
+  - name: fix_plan
+    description: Root cause analysis and approved fix approach
+
+  - name: fix_description
+    description: What was changed to fix the bug
+
+patterns:
+  phases:
+    - id: B1
+      name: Reproduce
+      goal: Confirm bug exists and understand trigger
+      output: Reproduction confirmed with steps
+      can_skip: false
+
+    - id: B2
+      name: Plan
+      goal: Identify root cause, design fix, get user approval
+      output: Root cause + fix plan approved by user
+      can_skip: false
+
+    - id: B3
+      name: Fix
+      goal: Minimal change to fix root cause
+      output: Fix applied, debug output removed
+      can_skip: false
+
+    - id: B4
+      name: Verify
+      goal: Ensure fix resolves bug with no regressions
+      output: Fix verified, changes reviewed
+      can_skip: false
+
+  debug_output:
+    use: "echo '[DEBUG] ...' >&2"
+    avoid: "Modifying implementation logic during investigation"
+    pattern: |
+      echo "[DEBUG] VARIABLE_NAME=$VARIABLE_NAME" >&2
+      echo "[DEBUG] pwd=$(pwd)" >&2
+    cleanup: Remove all debug output after fix
+
+anti_patterns:
+  - name: fix_without_reproduction
+    why_bad: Can't verify fix works if can't reproduce bug
+    what_to_do: Always reproduce first, document steps
+
+  - name: fix_without_approval
+    why_bad: May take wrong approach, wasted effort
+    what_to_do: Get user approval on fix plan before proceeding
+
+  - name: guess_and_fix
+    why_bad: May fix symptom not cause, introduces new issues
+    what_to_do: Trace code path, add debug output, understand first
+
+  - name: change_code_to_debug
+    why_bad: Mixes debugging with fixing, hard to track
+    what_to_do: Add debug output only, analyze, then make fix
+
+  - name: fix_plus_refactor
+    why_bad: Hard to review, may introduce issues
+    what_to_do: Minimal fix only, refactor in separate PR
+
+procedures:
+  - name: bugfix_flow
+    description: Complete bug fix from report to verified fix
+    steps:
+      - phase: B1 - Reproduce
+        actions:
+          - Read bug description and any logs/screenshots
+          - Identify reproduction steps
+          - Execute steps (run script, trigger workflow, check logs)
+          - Document observed vs expected behavior
+        failure_action: Ask user for more context
+
+      - phase: B2 - Plan
+        actions:
+          - Trace code path from reproduction
+          - Read relevant source files
+          - Form hypothesis about cause
+          - If unclear, add temporary debug output
+          - Document root cause location and explanation
+          - Design minimal fix approach
+          - Get user approval on fix plan
+        failure_action: Add more debug output, re-analyze
+
+      - phase: B3 - Fix
+        actions:
+          - Make minimal change to fix root cause
+          - Remove any temporary debug output
+          - Do not refactor surrounding code
+        failure_action: Re-analyze, fix may be incomplete
+
+      - phase: B4 - Verify
+        actions:
+          - Re-run reproduction steps to confirm fix
+          - Review diff for minimal and correct changes
+          - Run shellcheck on shell scripts if available
+          - Validate YAML syntax on workflow files if available
+          - Check related code paths for similar issues
+        failure_action: Analyze if new issue is related to fix
+
+examples:
+  - name: Path resolution error
+    bug: "run-e2e.sh fails to find docker-compose file after cloning repo"
+    reproduction: "Trigger dispatch, observe script exits at webdriver step"
+    root_cause: "Relative path set before cd into clone directory"
+    fix: "Set path after cd or use absolute path"
+
+  - name: Missing environment variable
+    bug: "Workflow fails with 'PROFILE: unbound variable'"
+    reproduction: "Trigger dispatch without profile in payload"
+    root_cause: "set -u in script but no default value for PROFILE"
+    fix: "Add default value: PROFILE=${PROFILE:-default}"
+
+context: |
+  This methodology is invoked for bug fix work in the CI/E2E runner project.
+  It ensures disciplined debugging that produces:
+  1. A confirmed reproduction (proves bug exists)
+  2. An approved fix plan (prevents wrong approach)
+  3. A minimal fix (easy to review)
+  4. Verified resolution (confirms fix works)
+
+  The key insight is: understand before changing. Most bugs are fixed
+  incorrectly because developers jump to fixing without understanding
+  the root cause.

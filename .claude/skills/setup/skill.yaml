@@ -1,0 +1,102 @@
+name: setup
+version: "1.0.0"
+kind: helper
+description: "Project setup and environment verification for ci-core-e2e-runner."
+tags:
+  - setup
+  - onboarding
+  - environment
+
+triggers:
+  - "setup"
+  - "onboarding"
+  - "new developer"
+  - "getting started"
+  - "configure"
+  - "install"
+
+purpose: |
+  Guide developers through setting up the ci-core-e2e-runner project.
+  This is a shell/YAML project with no Node.js, npm, or task runner.
+  The main prerequisites are Git and GitHub CLI (gh).
+
+owns:
+  - "Developer onboarding workflow"
+  - "Prerequisites verification"
+  - "Project structure orientation"
+
+patterns:
+  - id: verify-prerequisites
+    description: "Check that required tools are installed before proceeding"
+    example: |
+      git --version
+      gh --version
+      gh auth status
+
+  - id: gh-auth-required
+    description: "GitHub CLI must be authenticated for workflow testing and PR operations"
+    example: |
+      gh auth status
+      # If not authenticated:
+      gh auth login
+
+  - id: read-claudemd-first
+    description: "New developers should read CLAUDE.md for project overview"
+    example: "Read CLAUDE.md for architecture, commands, and workflow details"
+
+  - id: scripts-must-be-executable
+    description: "Shell scripts in scripts/ must have execute permission"
+    example: "chmod +x scripts/*.sh"
+
+anti_patterns:
+  - id: installing-node
+    description: "Installing Node.js or npm for this project"
+    problem: "This is not a Node.js project. No package.json, no node_modules."
+    solution: "Only Git and GitHub CLI are needed for development."
+
+  - id: installing-task-runner
+    description: "Installing Taskfile CLI for this project"
+    problem: "This project has no Taskfile.yml. Task commands referenced in CLAUDE.md run inside the target repo (genlayer-node), not this repo."
+    solution: "No task runner needed. This repo uses shell scripts and GitHub Actions."
+
+  - id: skipping-gh-auth
+    description: "Trying to work without gh CLI authentication"
+    problem: "Cannot test workflows, create PRs, or interact with GitHub API."
+    solution: "Run gh auth login before starting development."
+
+procedure:
+  - id: new-developer-setup
+    description: "Complete setup for a new developer"
+    steps:
+      - description: "Clone repository"
+        command: "git clone git@github.com:genlayerlabs/ci-core-e2e-runner.git && cd ci-core-e2e-runner"
+        skip_if: "Already have the repository cloned"
+
+      - description: "Verify GitHub CLI is installed"
+        command: "gh --version"
+
+      - description: "Verify GitHub CLI is authenticated"
+        command: "gh auth status"
+
+      - description: "Review project documentation"
+        command: "Read CLAUDE.md"
+
+      - description: "Verify repository structure"
+        command: "ls .github/workflows/ scripts/"
+
+      - description: "Ensure scripts are executable"
+        command: "chmod +x scripts/*.sh"
+
+inputs:
+  - name: clone_url
+    description: "Repository URL (SSH or HTTPS)"
+    required: false
+    default: "git@github.com:genlayerlabs/ci-core-e2e-runner.git"
+
+validations:
+  - id: prerequisites-check
+    description: "Verify all prerequisites are installed"
+    commands:
+      - "git --version"
+      - "gh --version"
+      - "gh auth status"

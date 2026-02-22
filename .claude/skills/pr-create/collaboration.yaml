@@ -1,0 +1,59 @@
+# Collaboration: skill dependencies and composition
+
+name: pr-create
+version: "1.0.0"
+
+dependencies:
+  - skill: workflow
+    direction: inbound
+    required: false
+    reason: "PR creation is typically the final step of a workflow"
+  - skill: commit
+    direction: inbound
+    required: false
+    reason: "Changes must be committed before a PR can be created"
+  - skill: pr-merge
+    direction: outbound
+    required: false
+    reason: "After PR creation, pr-merge handles the merge"
+
+composition:
+  - when: "Creating a pull request"
+    sequence:
+      - pr-create
+
+  - when: "Finishing workflow with PR"
+    sequence:
+      - workflow
+      - pr-create
+
+triggers:
+  - pattern: "create pr|make pr|open pr|submit pr|/pr|/pr-create"
+    suggest: pr-create
+  - pattern: "push and pr|push pr|create pull request"
+    suggest: pr-create
+
+complements:
+  - skill: commit
+    relationship: "Commits must exist before a PR is created"
+  - skill: pr-merge
+    relationship: "PR merge is the natural follow-up to PR creation"
+  - skill: linear
+    relationship: "PR descriptions can reference Linear issue URLs"
+
+boundaries:
+  owns:
+    - "Pull request creation via GitHub CLI"
+    - "PR title and description generation"
+    - "Branch pushing to remote before PR creation"
+    - "PR label and reviewer assignment"
+  defers_to:
+    - "Committing changes -> commit"
+    - "Branch creation -> workflow / workflow-setup"
+    - "Merging the PR -> pr-merge"
+    - "Issue linking -> linear"
+  extension_points:
+    - "Future CI-status skills can add required-checks summary to PR description"
+    - "Future test-runner skills can append E2E test results to PR body"
+    - "Future linter skills can add code-quality badges or summaries to PR description"
+    - "Future deployment-preview skills can add preview URLs to PR comments"

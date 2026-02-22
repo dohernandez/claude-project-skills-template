@@ -1,0 +1,60 @@
+# Collaboration: skill dependencies and composition
+
+name: docs-refresh
+version: "1.0.0"
+
+dependencies:
+  - skill: create-skill
+    direction: inbound
+    required: false
+    reason: "After creating a new skill, run docs-refresh to update CLAUDE.md"
+
+composition:
+  - when: "Creating a new skill"
+    sequence:
+      - create-skill
+      - docs-refresh
+
+  - when: "Modifying skill patterns or ownership"
+    sequence:
+      - docs-refresh
+
+  - when: "Adding or removing project files (workflows, scripts)"
+    sequence:
+      - docs-refresh
+
+triggers:
+  - pattern: "documentation|docs refresh|update docs|sync docs|/docs-refresh"
+    suggest: docs-refresh
+  - condition: ".claude/skills/*/skill.yaml modified"
+    action: "Run docs-refresh to update CLAUDE.md skills listing"
+  - condition: "Files added/removed in .github/workflows/ or scripts/"
+    action: "Run docs-refresh to update CLAUDE.md repository structure"
+
+complements:
+  - skill: create-skill
+    relationship: "After creating a skill, refresh docs to update CLAUDE.md"
+  - skill: setup
+    relationship: "After setup, docs-refresh verifies CLAUDE.md is current"
+
+boundaries:
+  owns:
+    - "CLAUDE.md content generation and synchronization"
+    - "Skills listing section in documentation"
+    - "Repository structure section in documentation"
+  defers_to:
+    - "Skill scaffolding -> create-skill"
+    - "Committing documentation changes -> commit"
+    - "Workflow file creation -> workflow or workflow-setup"
+  extension_points:
+    - "Future API-doc skills can register additional doc sections to refresh"
+    - "Future diagram-generator skills can auto-update architecture diagrams in CLAUDE.md"
+    - "Future monitoring skills can add runbook links to documentation"
+
+workflow:
+  after_skill_change:
+    description: "Standard workflow after modifying any skill"
+    steps:
+      - "Review .claude/skills/ for changes"
+      - "Update CLAUDE.md skills listing"
+      - "Commit CLAUDE.md with skill changes"

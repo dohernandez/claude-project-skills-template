@@ -1,0 +1,243 @@
+name: workflow
+kind: workflow
+version: "1.0.0"
+description: "Manage development lifecycle for CI/E2E runner work (start, status, finish)."
+severity: medium
+tags:
+  - workflow
+  - git
+  - automation
+  - developer-experience
+
+purpose: |
+  Automate the development lifecycle for work on the CI/E2E runner:
+  - Start: Create branch, store context, delegate to task/bugfix
+  - Status: Show current workflow state and progress
+  - Finish: Verify PR merged, cleanup branch, clear context
+
+  Supports plain text descriptions as input source.
+
+owns:
+  - "Development workflow automation"
+  - "Branch creation and naming conventions"
+  - "Workflow context management (.claude/workflow/<branch>/context.json)"
+  - "Post-merge cleanup operations"
+
+inputs_required:
+  - id: source
+    description: "Plain text description of the work to do"
+    examples:
+      - "Add retry logic to E2E pipeline"
+      - "Fix webhook reaction step"
+      - "Update runner setup script"
+
+required_outputs:
+  - "Feature branch created and checked out"
+  - ".claude/workflow/<branch>/context.json with metadata"
+
+patterns:
+  - id: branch-naming-convention
+    description: |
+      Branch names include type prefix: <type>/<kebab-description>
+      Type prefix enables quick identification of branch purpose (feat, fix, chore, docs, ci).
+    example: |
+      feat/add-retry-logic-to-e2e-pipeline
+      fix/webhook-reaction-step
+      ci/add-profile-selection-to-dispatch
+      chore/update-runner-setup-script
+      docs/update-readme-architecture
+
+  - id: type-inference
+    description: |
+      Infer branch type from description:
+      - "bug", "fix", "error", "broken" -> fix
+      - "feature", "add", "new", "implement" -> feat
+      - "docs", "documentation", "readme" -> docs
+      - "ci", "workflow", "action", "pipeline" -> ci
+      - "chore", "update", "cleanup", "maintenance" -> chore
+      - Default: feat
+    example: |
+      "Fix webhook reaction step" -> fix
+      "Add retry logic" -> feat
+      "Update CI workflow" -> ci
+
+  - id: context-file-location
+    description: |
+      Workflow context stored in .claude/workflow/<branch>/context.json (must be gitignored).
+      Contains: source, title, branch, type, createdAt
+    example: |
+      {
+        "source": "text",
+        "title": "Add retry logic to E2E pipeline",
+        "branch": "feat/add-retry-logic-to-e2e-pipeline",
+        "type": "feat",
+        "createdAt": "2026-02-22T10:30:00Z"
+      }
+
+  - id: safety-checks-before-start
+    description: |
+      Before creating branch, check for:
+      - Uncommitted changes (git status)
+      - Existing workflow context (already working on something)
+      - Current branch not main (might be mid-workflow)
+    example: |
+      if uncommitted_changes:
+        warn user, ask to stash or commit
+      if context_exists:
+        ask to finish current or abort
+
+  - id: pr-verification-before-finish
+    description: |
+      Before cleanup, verify PR status:
+      - Check if PR exists for branch (gh pr list)
+      - If exists, verify merged status
+      - If not merged, require user confirmation for force-finish
+    example: |
+      pr_status = gh pr view --json state
+      if pr_status != "MERGED":
+        ask user to confirm force-finish
+
+  - id: learning-quality-rules
+    description: |
+      Every learning must pass quality checklist before storing:
+      1. Complete sentence (not truncated/fragment)
+      2. Actionable (contains DO/DON'T/USE/AVOID/PREFER)
+      3. Specific (names tools, patterns, files, concepts)
+      4. Understandable standalone (no context needed)
+      5. NOT a question
+      6. NOT a raw complaint (must be transformed)
+      7. Includes WHY, not just WHAT
+    example: |
+      Good: "Use 2>/dev/null || true for cleanup commands because they may fail if resource already deleted"
+      Bad: "use error handling" (no context)
+      Bad: "Where should I add the step?" (question)
+
+anti_patterns:
+  - id: skip-uncommitted-check
+    description: "Starting new workflow without checking for uncommitted changes"
+    why_bad: "User may lose work or create messy commit history"
+
+  - id: force-finish-without-confirmation
+    description: "Deleting branch without verifying PR is merged"
+    why_bad: "May delete branch with unmerged work, causing data loss"
+
+  - id: context-not-gitignored
+    description: "workflow context committed to repo"
+    why_bad: "Personal workflow state should not be in version control"
+
+  - id: skip-planning-step
+    description: "Starting work without creating implementation plan"
+    why_bad: "Misses opportunity for structured approach and user alignment"
+
+  - id: bypass-failed-checks
+    description: "Offering to bypass/merge when CI checks have failed"
+    why_bad: "Merging broken code into main. Failed checks require investigation, not bypass."
+
+  - id: verbatim-learning-storage
+    description: "Storing user corrections word-for-word without synthesis"
+    why_bad: "Raw input lacks context and actionability. Always transform into actionable rules."
+
+handoffs:
+  - skill: "workflow-setup"
+    when: "After branch name generation, to create branch and setup context"
+  - skill: "commit"
+    when: "After retrospective, to commit changes with conventional commit message"
+  - skill: "pr-create"
+    when: "After commit, to create PR with proper formatting"
+
+procedure:
+  - step: "Parse command"
+    detail: |
+      Determine which phase: start, status, or finish.
+      Extract description argument for start command.
+
+  - step: "Start - Safety checks"
+    detail: |
+      Run git status to check for uncommitted changes.
+      Check if already on a non-main branch (already in workflow).
+      Warn user and get confirmation if issues found.
+
+  - step: "Start - Determine type"
+    detail: |
+      Infer type from description:
+      - Check for "bug", "fix", "error" keywords -> fix
+      - Check for "ci", "workflow", "action", "pipeline" keywords -> ci
+      - Check for "docs", "documentation" keywords -> docs
+      - Check for "chore", "update", "cleanup" keywords -> chore
+      - Default: feat
+
+  - step: "Start - Generate branch name"
+    detail: |
+      Create kebab-case description from input (max 50 chars).
+      Format with type prefix: <type>/<description>
+      Example: feat/add-retry-logic, ci/update-dispatch-payload
+
+  - step: "Start - Call workflow-setup"
+    detail: |
+      Invoke workflow-setup skill with:
+        - branch: generated branch name
+        - title: description
+        - type: inferred type (feat, fix, ci, etc.)
+
+      workflow-setup will:
+        - Update main branch (fetch + pull)
+        - Create feature branch from main
+        - Create .claude/workflow/<branch>/ directory
+        - Write context.json
+
+  - step: "Start - Delegate to implementation skill"
+    detail: |
+      Based on type:
+        - fix -> Invoke /bugfix skill
+        - feat/chore/docs/ci -> Invoke /task skill
+
+  # Retrospective (after implementation, before commit)
+  - step: "Retrospective - Capture learnings"
+    detail: |
+      After implementation is complete, capture learnings BEFORE committing.
+
+      Scan conversation for signals:
+      - Corrections (high): "No, don't use X", "Wrong, use Y instead"
+      - Rules (high): "Always do X", "Never do Y", "The convention is"
+      - Approvals (medium): "Perfect!", "That's exactly how we do it"
+
+      Quality checklist (must pass all):
+      - Complete sentence, not truncated
+      - Actionable (DO/DON'T/USE/AVOID)
+      - Specific (names tools, patterns, files)
+      - NOT a question
+      - Includes context/reason
+
+  - step: "Retrospective - Update workflow memory"
+    detail: |
+      Write learnings to workflow/MEMORY.md (this is the only project
+      that stores learnings, since there are no domain/test/arch skills).
+
+  # Commit and PR (use dedicated skills)
+  - step: "Commit - Use commit skill"
+    detail: |
+      After retrospective, use the /commit skill to commit changes.
+      Invoke: /commit
+
+  - step: "PR - Use pr-create skill"
+    detail: |
+      After commit, use the /pr-create skill to create the PR.
+      Invoke: /pr-create
+
+  - step: "Status - Show info"
+    detail: |
+      Read current branch name: git branch --show-current
+      Look for context.json in .claude/workflow/<branch>/
+      If found, show branch, type, title, created date.
+      Check for PR: gh pr list --head <branch>.
+      Show PR status if exists.
+
+  - step: "Finish - Delegate to workflow-finish"
+    detail: |
+      Invoke the workflow-finish skill which handles:
+      1. Resolving target branch
+      2. Verifying PR is merged
+      3. Switching to main and pulling latest
+      4. Deleting local and remote branches
+      5. Cleaning up workflow context
+      6. Reporting results

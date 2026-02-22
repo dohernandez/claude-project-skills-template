@@ -1,0 +1,88 @@
+# Sharp edges for bugfix
+
+edges:
+  - id: skipping-reproduction
+    description: "Jumping to fix without reproducing the bug first"
+    detect: "No reproduction steps documented before making code changes"
+    impact: "May fix wrong thing, can't verify fix works"
+    fix: |
+      Always start with B1 (Reproduce):
+      1. Read the bug report carefully
+      2. Execute reproduction steps (run script, trigger workflow, check logs)
+      3. Document observed vs expected behavior
+      4. Only proceed when you can trigger the bug
+    severity: critical
+
+  - id: over-engineering-fix
+    description: "Refactoring or improving code beyond the minimal fix"
+    detect: "Changes to code not directly related to the bug"
+    impact: "Harder to review, may introduce new issues"
+    fix: |
+      In B3, make MINIMAL changes only:
+      - Fix the specific root cause
+      - Don't refactor surrounding code
+      - Don't add "improvements"
+      - Don't clean up unrelated issues
+      - Save refactoring for a separate task
+    severity: medium
+
+  - id: changing-code-to-debug
+    description: "Modifying implementation logic while investigating"
+    detect: "Logic changes made during B2 (Plan) phase"
+    impact: "Mixes debugging with fixing, hard to track what changed"
+    fix: |
+      During B2, only add debug output:
+      1. Use echo "[DEBUG] ..." >&2 in shell scripts
+      2. Add output at key checkpoints
+      3. Run and analyze output
+      4. Remove debug output after understanding cause
+      5. Only make implementation changes in B3
+    severity: medium
+
+  - id: not-verifying-fix
+    description: "Not confirming the fix actually resolves the bug"
+    detect: "Fix applied but reproduction steps not re-run"
+    impact: "Fix may not resolve the actual bug, or may only partially fix it"
+    fix: |
+      In B4 (Verify), always:
+      1. Re-run the exact reproduction steps from B1
+      2. Confirm the bug no longer occurs
+      3. Review the diff for minimal and correct changes
+      4. Run available linters (shellcheck, yamllint) on changed files
+      5. Check related code paths for the same bug pattern
+    severity: critical
+
+  - id: forgetting-to-remove-debug-output
+    description: "Leaving debug echo/printf statements in scripts"
+    detect: "echo [DEBUG] or similar debug output still present in code"
+    impact: "Noisy logs in production, potential info leakage"
+    fix: |
+      At end of B3:
+      1. Search for any debug output you added
+      2. Remove all temporary echo/printf debug statements
+      3. Keep only permanent logging that was there before
+    severity: low
+
+  - id: cant-reproduce-proceeding-anyway
+    description: "Proceeding to fix when bug can't be reproduced"
+    detect: "Bug not reproduced but code changes made anyway"
+    impact: "Fixing blind - may not fix actual bug, can't verify"
+    fix: |
+      If you can't reproduce:
+      1. Ask user for more context
+      2. Check environment differences (versions, config, runner setup)
+      3. Check if bug is intermittent (timing, race condition)
+      4. DO NOT proceed without reproduction
+    severity: critical
+
+  - id: related-issue-dismissal
+    description: "New issues after fix dismissed without analysis"
+    detect: "Issues discovered during verification dismissed as unrelated"
+    impact: "Fix may have unintended side effects"
+    fix: |
+      When issues appear after fix:
+      1. Analyze if the issue is related to your change
+      2. If related: your fix may have side effects, re-analyze
+      3. If truly unrelated: note it separately, don't just dismiss
+      4. Never commit if fix introduces new problems
+    severity: high

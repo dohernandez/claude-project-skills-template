@@ -1,0 +1,38 @@
+# Sharp edges for workflow-setup
+#
+# NOTE: The `detect` field is informational only - it shows how to manually
+# check for the edge case. These are NOT automatically enforced.
+
+edges:
+  - id: branch-already-exists
+    description: "Branch already exists in repository"
+    detect: "git branch --list <branch> or git ls-remote --heads origin <branch>"
+    impact: "git checkout -b <branch> fails"
+    fix: |
+      Check if branch exists before creating.
+      If exists locally: ask user if they want to switch to it
+      If exists only remotely: checkout and track it
+    severity: medium
+
+  - id: stale-base-branch
+    description: "Creating branch from stale main that's behind remote"
+    detect: "git rev-list --count main..origin/main (after fetch)"
+    impact: "Branch created from outdated code, will need rebasing immediately"
+    fix: |
+      CRITICAL: Always update main before creating branch.
+      Run:
+        git fetch origin main
+        git checkout main
+        git pull origin main
+      Then create the feature branch from the updated main.
+    severity: high
+
+  - id: uncommitted-changes
+    description: "Source repo has uncommitted changes when creating branch"
+    detect: "git status --porcelain (non-empty output)"
+    impact: "Uncommitted changes carry over to new branch, may be unrelated"
+    fix: |
+      This check should be done by workflow before calling setup.
+      If setup is called directly, warn user about uncommitted changes.
+      Changes need to be committed or stashed first.
+    severity: medium

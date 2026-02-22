@@ -1,0 +1,137 @@
+name: create-skill
+kind: meta
+version: "1.0.0"
+description: "Scaffold a new Claude Code skill using the multi-YAML pattern for ci-core-e2e-runner."
+severity: high
+tags:
+  - skills
+  - automation
+  - repo-hygiene
+  - tooling
+
+purpose: |
+  Create a new skill directory under .claude/skills/{folder-name}/ with:
+  - a thin SKILL.md that Claude reads (frontmatter + pointers)
+  - canonical YAML files used by automation (patterns, gotchas, collaboration)
+  No task runner, no hooks, no validation runner. This is a shell/YAML project.
+
+owns:
+  - "Skill scaffolding under .claude/skills/*/"
+  - "Multi-YAML canonical file layout for skills"
+
+inputs_required:
+  - id: folder_name
+    description: "Skill folder basename (directory name). Must match SKILL.md frontmatter name."
+    examples:
+      - workflow-lint
+      - runner-check
+      - e2e-profile
+  - id: title
+    description: "Human title for H1 header in SKILL.md."
+    examples:
+      - "Workflow Lint"
+      - "Runner Check"
+  - id: description
+    description: "One-line description for trigger matching (frontmatter description)."
+  - id: purpose
+    description: "2-3 sentences describing what the skill accomplishes (SKILL.md purpose section)."
+  - id: kind
+    description: "Skill kind: action, workflow, gate, helper, or meta."
+  - id: user_invocable
+    description: "Whether the user can invoke this skill directly (true/false)."
+  - id: allowed_tools
+    description: "List of tools the skill needs access to."
+
+required_outputs:
+  - ".claude/skills/{folder-name}/SKILL.md"
+  - ".claude/skills/{folder-name}/skill.yaml"
+  - ".claude/skills/{folder-name}/collaboration.yaml"
+  - ".claude/skills/{folder-name}/sharp-edges.yaml"
+
+patterns:
+  - id: thin-skillmd-pointers-only
+    description: |
+      SKILL.md is a thin wrapper that:
+      - defines frontmatter (name/description/tools)
+      - states purpose + quick reference at pointer-level only
+      - points to YAML files for canonical rules
+    example: |
+      SKILL.md includes:
+      - Purpose (2-3 sentences)
+      - Quick reference (creates/requires)
+      - Automation section pointing to skill.yaml / sharp-edges.yaml / collaboration.yaml
+
+  - id: name-matches-folder
+    description: |
+      SKILL.md frontmatter name: must exactly match the folder basename.
+    example: |
+      Folder: .claude/skills/runner-check/
+      SKILL.md:
+        name: runner-check
+
+  - id: document-in-claudemd
+    description: |
+      Every new skill MUST be documented in CLAUDE.md.
+      Add a description so Claude knows when to use it.
+    example: |
+      Add to CLAUDE.md skills listing:
+      - `runner-check` - Verify runner prerequisites before E2E execution
+
+  - id: four-file-layout
+    description: |
+      Every skill produces exactly four files:
+      - SKILL.md (frontmatter + pointers)
+      - skill.yaml (patterns, procedure, ownership)
+      - collaboration.yaml (dependencies, triggers)
+      - sharp-edges.yaml (gotchas, failure modes)
+
+anti_patterns:
+  - id: name-mismatch
+    description: "SKILL.md frontmatter name differs from folder basename"
+    why_bad: "Breaks lookup conventions and skill discovery."
+
+  - id: restating-canonical-rules-in-skillmd
+    description: "Copying patterns/anti-patterns from skill.yaml into SKILL.md"
+    why_bad: "Violates canonical placement. SKILL.md should remain thin and stable."
+
+  - id: missing-collaboration-yaml
+    description: "Creating a skill without collaboration.yaml"
+    why_bad: "Triggers and composition are lost. Other skills cannot discover this one."
+
+  - id: missing-sharp-edges
+    description: "Creating a skill without sharp-edges.yaml"
+    why_bad: "Common failure modes go undocumented. Agent repeats mistakes."
+
+procedure:
+  - step: "Gather inputs"
+    detail: |
+      Collect from user:
+      - folder_name
+      - title
+      - description
+      - purpose
+      - kind (action, workflow, gate, helper, meta)
+      - user_invocable (true/false)
+      - allowed_tools
+
+  - step: "Create folder"
+    detail: "mkdir -p .claude/skills/{folder-name}/"
+
+  - step: "Write SKILL.md (thin wrapper)"
+    detail: |
+      Use folder-name in frontmatter name field.
+      Keep content pointer-level only: purpose, quick reference, automation pointers.
+
+  - step: "Write skill.yaml"
+    detail: "Put canonical patterns, anti-patterns, ownership, and procedure here."
+
+  - step: "Write collaboration.yaml"
+    detail: "Define dependencies, composition sequences, and triggers."
+
+  - step: "Write sharp-edges.yaml"
+    detail: "Document common gotchas with detection hints, impact, and fixes."
+
+  - step: "Document in CLAUDE.md"
+    detail: |
+      Add the skill to CLAUDE.md so Claude knows about it.
+      Include the skill name and a brief description of when to use it.

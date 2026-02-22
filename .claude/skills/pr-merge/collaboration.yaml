@@ -1,0 +1,50 @@
+# Collaboration: skill dependencies and composition
+
+name: pr-merge
+version: "1.0.0"
+
+dependencies:
+  - skill: pr-create
+    direction: inbound
+    required: false
+    reason: "PR must exist before it can be merged"
+
+composition:
+  - when: "Merging a pull request"
+    sequence:
+      - pr-merge  # Check CI, merge state, execute merge
+
+  - when: "Full PR workflow"
+    sequence:
+      - pr-create  # Create the PR
+      - pr-merge   # Merge when ready
+
+triggers:
+  - pattern: "merge pr|merge pull request|pr merge|/pr-merge|/merge-pr"
+    suggest: pr-merge
+  - pattern: "is pr ready|can we merge|check pr status"
+    suggest: pr-merge
+  - pattern: "merge this|merge it|let's merge"
+    suggest: pr-merge
+
+complements:
+  - skill: pr-create
+    relationship: "PR must be created before it can be merged"
+  - skill: workflow
+    relationship: "Merging is the final step closing out a workflow"
+
+boundaries:
+  owns:
+    - "PR merge readiness checks (CI status, approvals, conflicts)"
+    - "Merge execution via GitHub CLI"
+    - "Merge strategy selection (squash, merge, rebase)"
+    - "Post-merge branch cleanup"
+  defers_to:
+    - "PR creation -> pr-create"
+    - "CI pipeline execution -> GitHub Actions / run-e2e workflow"
+    - "Branch management -> workflow"
+  extension_points:
+    - "Future E2E-gate skills can block merge until E2E tests pass"
+    - "Future deployment skills can trigger production deploy after merge"
+    - "Future notification skills can announce merges to Slack or other channels"
+    - "Future changelog skills can auto-update CHANGELOG.md on merge"

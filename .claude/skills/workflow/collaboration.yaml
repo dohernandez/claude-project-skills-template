@@ -1,0 +1,73 @@
+# Collaboration: skill dependencies and composition
+#
+# NOTE: composition.sequence lists skill names only.
+
+name: workflow
+version: "1.0.0"
+
+dependencies:
+  - skill: workflow-setup
+    direction: outbound
+    required: true
+    reason: "Creates branch and workflow context during start phase"
+  - skill: workflow-finish
+    direction: outbound
+    required: false
+    reason: "Handles cleanup and learnings capture during finish phase"
+  - skill: task
+    direction: outbound
+    required: false
+    reason: "Delegates feature/task implementation work"
+  - skill: bugfix
+    direction: outbound
+    required: false
+    reason: "Delegates bugfix implementation work"
+
+# workflow-setup handles branch creation and context setup
+# Implementation is delegated to /task or /bugfix
+
+composition:
+  - when: "Starting work on a task"
+    sequence:
+      - workflow       # Determines type, generates branch name
+      - workflow-setup # Creates branch, writes context
+      # Delegates to /task or /bugfix for implementation
+
+  - when: "Finishing ticket work"
+    sequence:
+      - workflow  # Captures learnings, delegates to workflow-finish for cleanup
+
+triggers:
+  - pattern: "start work|new task|begin work|workflow start"
+    suggest: workflow
+  - pattern: "finish task|done with task|cleanup branch|workflow finish|capture learnings"
+    suggest: workflow
+  - pattern: "task status|workflow status|current task"
+    suggest: workflow
+
+complements:
+  - skill: commit
+    relationship: "Commits are created during workflow implementation"
+  - skill: pr-create
+    relationship: "PR creation is the final step of a workflow"
+  - skill: linear
+    relationship: "Workflow branches may reference Linear issue IDs"
+
+boundaries:
+  owns:
+    - "Workflow orchestration (start, delegate, finish)"
+    - "Work type classification (task vs bugfix)"
+    - "Branch naming strategy and generation"
+    - "Workflow state tracking and status reporting"
+  defers_to:
+    - "Branch creation mechanics -> workflow-setup"
+    - "Feature implementation -> task"
+    - "Bug fix implementation -> bugfix"
+    - "Cleanup and learnings -> workflow-finish"
+    - "Committing code -> commit"
+    - "PR creation -> pr-create"
+  extension_points:
+    - "Future E2E-runner skills can trigger test runs as a workflow step"
+    - "Future code-review skills can request reviews before workflow finish"
+    - "Future estimation skills can track time spent per workflow"
+    - "Future CI-watcher skills can monitor pipeline status during workflow"

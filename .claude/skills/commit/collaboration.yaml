@@ -1,0 +1,77 @@
+# Collaboration: skill dependencies and composition
+
+name: commit
+version: "1.0.0"
+
+dependencies:
+  - skill: workflow
+    direction: inbound
+    required: false
+    reason: "workflow may invoke commit during implementation phase"
+  - skill: pr-create
+    direction: outbound
+    required: false
+    reason: "After committing, user typically proceeds to create a PR"
+
+composition:
+  - when: "User wants to create a PR after committing"
+    sequence:
+      - commit
+      - "git push (manual)"
+      - pr-create
+
+triggers:
+  - pattern: "commit|/commit"
+    suggest: commit
+
+  - pattern: "git commit|stage changes|create commit"
+    suggest: commit
+
+  - pattern: "commit message|conventional commit"
+    suggest: commit
+
+complements:
+  - skill: workflow
+    relationship: "Commits happen inside an active workflow context"
+  - skill: pr-create
+    relationship: "Commits precede PR creation in the standard flow"
+
+boundaries:
+  owns:
+    - "Git commit message generation"
+    - "Conventional commit format"
+    - "Intelligent staging guidance"
+    - "Project commit rules enforcement"
+    - "Commit safety checks"
+  defers_to:
+    - "Branch management -> workflow"
+    - "Pull request creation -> pr-create"
+    - "Push to remote -> manual git push"
+  extension_points:
+    - "Future test-runner skills can gate commits on passing tests"
+    - "Future linter skills can run shellcheck/yamllint before commit"
+    - "Future secret-scanner skills can block commits containing credentials or tokens"
+    - "Future changelog skills can auto-generate changelog entries from conventional commits"
+
+common_questions:
+  - question: "Should I stage all files with git add -A?"
+    answer: |
+      No. Use git add <specific-files> to avoid accidentally staging secrets
+      or unrelated files. Review git status first.
+
+  - question: "What if pre-commit hooks fail?"
+    answer: |
+      Fix the issue (usually lint or test failure).
+      Re-stage files if needed.
+      Create a NEW commit - never use --amend after hook failure.
+
+  - question: "Can I include ticket references in the commit?"
+    answer: |
+      No. Project rule: ticket references belong in PR description,
+      not in commit messages. Keep commits focused on the change itself.
+
+  - question: "Should I use past or present tense?"
+    answer: |
+      Present tense, imperative mood.
+      Good: "add feature", "fix bug", "update config"
+      Bad: "added feature", "fixed bug", "updated config"

@@ -1,0 +1,67 @@
+# Collaboration: skill dependencies and composition
+#
+# NOTE: composition.sequence lists skill names only.
+
+name: task
+version: "1.0.0"
+
+dependencies:
+  - skill: workflow
+    direction: inbound
+    required: true
+    reason: "Workflow delegates to task for feat/, chore/, docs/, ci/ branches after classification"
+
+composition:
+  - when: "Implementing a feature, chore, docs update, or CI change"
+    sequence:
+      - task  # T1 Scope -> T2 Plan -> T3 Implement -> T4 Verify
+
+triggers:
+  - pattern: "implement|add feature|new feature|chore|update docs|ci change"
+    suggest: workflow
+    reason: "Task is not user-invocable; workflow classifies and delegates"
+
+  - pattern: "add support for|create new|set up|configure"
+    suggest: workflow
+    reason: "New capabilities should go through workflow for proper branch creation"
+
+  - pattern: "refactor|clean up|reorganize|restructure"
+    suggest: workflow
+    reason: "Refactoring tasks follow the task methodology via workflow"
+
+complements:
+  - skill: commit
+    relationship: "After implementation is verified at T4, commit the changes"
+  - skill: pr-create
+    relationship: "After committing, create a PR for review"
+
+boundaries:
+  owns:
+    - "Scope definition and clarification (T1 phase)"
+    - "Implementation planning with file identification (T2 phase)"
+    - "Code implementation following the plan (T3 phase)"
+    - "Change verification through diff review and linting (T4 phase)"
+    - "Scope guard - preventing feature creep during implementation"
+  defers_to:
+    - "Branch creation and naming -> workflow / workflow-setup"
+    - "Committing changes -> commit"
+    - "Creating the PR -> pr-create"
+    - "Merging the PR -> pr-merge"
+  extension_points:
+    - "Future test-runner skills can add E2E validation at T4 (Verify)"
+    - "Future architecture skills can validate structural decisions at T2 (Plan)"
+    - "Future linter skills can run shellcheck/yamllint at T4 (Verify)"
+    - "Future estimation skills can track scope vs actual implementation effort"
+
+common_questions:
+  - question: "Should I add tests for new features?"
+    answer: |
+      This project doesn't have tests yet. Verify through diff review
+      and linting at T4. If the change touches shell scripts, manually
+      verify syntax. If it touches YAML workflows, validate structure.
+
+  - question: "What if scope changes during implementation?"
+    answer: |
+      Go back to T1, re-scope, and get approval before continuing.
+      Do not silently expand scope during T3. The scope guard exists
+      to prevent feature creep and keep PRs reviewable.

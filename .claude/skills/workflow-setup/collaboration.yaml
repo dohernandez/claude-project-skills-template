@@ -1,0 +1,47 @@
+# Collaboration: skill dependencies and composition
+#
+# NOTE: composition.sequence lists skill names only.
+
+name: workflow-setup
+version: "1.0.0"
+
+dependencies:
+  - skill: workflow
+    direction: inbound
+    required: true
+    reason: "Called by workflow during start phase"
+
+# This skill does not directly call other skills.
+# After setup, workflow delegates to /task or /bugfix.
+
+composition:
+  - when: "Starting work on a task with branch setup"
+    sequence:
+      - workflow       # Determines type, generates branch name
+      - workflow-setup # Creates branch, writes context
+      # workflow then delegates to /task or /bugfix
+
+triggers:
+  # This skill is not directly invoked by users.
+  # It's called internally by workflow.
+  []
+
+complements:
+  - skill: workflow
+    relationship: "workflow-setup is a sub-step of the workflow start phase"
+  - skill: workflow-finish
+    relationship: "workflow-finish is the counterpart that cleans up what workflow-setup created"
+
+boundaries:
+  owns:
+    - "Git branch creation from workflow context"
+    - "Workflow context file generation (.workflow-context)"
+    - "Working directory preparation for new work"
+  defers_to:
+    - "Work type classification -> workflow"
+    - "Implementation after setup -> task or bugfix"
+    - "Branch naming strategy -> workflow"
+  extension_points:
+    - "Future environment-provisioning skills can spin up test environments during setup"
+    - "Future dependency-installer skills can auto-install project deps on branch switch"
+    - "Future config-generator skills can create branch-specific configuration files"

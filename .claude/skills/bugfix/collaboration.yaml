@@ -1,0 +1,67 @@
+# Collaboration: skill dependencies and composition
+#
+# NOTE: composition.sequence lists skill names only.
+
+name: bugfix
+version: "1.0.0"
+
+dependencies:
+  - skill: workflow
+    direction: inbound
+    required: true
+    reason: "Workflow delegates to bugfix for fix/ branches after classification"
+
+composition:
+  - when: "Fixing a bug discovered during development or reported in an issue"
+    sequence:
+      - bugfix  # B1 Reproduce -> B2 Plan -> B3 Fix -> B4 Verify
+
+triggers:
+  - pattern: "fix bug|debug|reproduce|bugfix|diagnose issue"
+    suggest: workflow
+    reason: "Bugfix is not user-invocable; workflow classifies and delegates"
+
+  - pattern: "something is broken|not working|error in|failing"
+    suggest: workflow
+    reason: "Bug reports should go through workflow for proper branch creation"
+
+  - pattern: "regression|broke after|used to work"
+    suggest: workflow
+    reason: "Regressions follow the bugfix methodology via workflow"
+
+complements:
+  - skill: commit
+    relationship: "After fix is verified at B4, commit the minimal change"
+  - skill: pr-create
+    relationship: "After committing the fix, create a PR for review"
+
+boundaries:
+  owns:
+    - "Bug reproduction methodology (B1 phase)"
+    - "Root cause analysis and fix planning (B2 phase)"
+    - "Fix implementation with minimal changes (B3 phase)"
+    - "Fix verification through reproduction steps (B4 phase)"
+    - "Debug output instrumentation (echo/printf for shell scripts)"
+  defers_to:
+    - "Branch creation and naming -> workflow / workflow-setup"
+    - "Committing the fix -> commit"
+    - "Creating the PR -> pr-create"
+    - "Merging the PR -> pr-merge"
+  extension_points:
+    - "Future test-runner skills can add automated regression tests at B4 (Verify)"
+    - "Future monitoring skills can correlate bugs with Grafana alerts or logs"
+    - "Future incident skills can link fixes to open incidents"
+    - "Future shellcheck skills can validate fix doesn't introduce shell script issues"
+
+common_questions:
+  - question: "Should I fix the bug and refactor at the same time?"
+    answer: |
+      No, fix only. Refactoring is scope creep. The bugfix methodology
+      demands minimal changes that address the root cause and nothing more.
+      If refactoring is needed, create a separate task after the fix lands.
+
+  - question: "What if I can't reproduce the bug?"
+    answer: |
+      Document what you tried in B1. Don't proceed to B3 (Fix) without
+      reproduction. If reproduction is impossible, escalate or gather more
+      context. A fix without reproduction cannot be verified at B4.

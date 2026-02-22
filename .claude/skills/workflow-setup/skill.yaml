@@ -1,0 +1,154 @@
+name: workflow-setup
+kind: helper
+version: "1.0.0"
+description: "Setup development branch and workflow context for task-based workflows."
+severity: low
+tags:
+  - workflow
+  - git
+  - setup
+  - branching
+
+purpose: |
+  Set up branches and context for development workflows.
+  Called by the workflow skill during the "start" phase to:
+  - Fetch and update the main branch
+  - Create a feature branch with the correct naming convention
+  - Create the workflow context directory
+  - Write context.json with workflow metadata
+
+  This is a helper skill (not user-invocable). It receives branch name,
+  title, and type from the workflow skill and performs the mechanical setup.
+
+owns:
+  - "Branch creation from latest main"
+  - "Workflow context directory (.claude/workflow/<branch>/)"
+  - "context.json creation with workflow metadata"
+  - "Main branch update (fetch + pull) before branching"
+
+inputs_required:
+  - id: branch
+    description: "Branch name to create (e.g. feat/add-retry-logic)"
+    examples:
+      - "feat/add-retry-logic-to-e2e-pipeline"
+      - "fix/webhook-reaction-step"
+      - "ci/update-dispatch-payload"
+  - id: title
+    description: "Human-readable title for the work"
+    examples:
+      - "Add retry logic to E2E pipeline"
+      - "Fix webhook reaction step"
+  - id: type
+    description: "Branch type prefix (feat, fix, ci, chore, docs)"
+    examples:
+      - "feat"
+      - "fix"
+      - "ci"
+
+required_outputs:
+  - "Feature branch created and checked out"
+  - ".claude/workflow/<branch>/context.json written"
+
+patterns:
+  - id: branch-creation
+    description: |
+      Always create branches from the latest main. Never create a branch
+      from a stale local main or from another feature branch.
+    example: |
+      git fetch origin main
+      git checkout main
+      git pull origin main
+      git checkout -b feat/add-retry-logic main
+
+  - id: context-writing
+    description: |
+      Write context.json with source, title, branch, type, and createdAt.
+      The context directory lives at .claude/workflow/<branch>/.
+      Must be gitignored (not committed to the repository).
+    example: |
+      {
+        "source": "text",
+        "title": "Add retry logic to E2E pipeline",
+        "branch": "feat/add-retry-logic-to-e2e-pipeline",
+        "type": "feat",
+        "createdAt": "2026-02-22T10:30:00Z"
+      }
+
+  - id: main-branch-update
+    description: |
+      CRITICAL: Update main before creating any branch. This prevents
+      branching from stale code that would require an immediate rebase.
+      Always use fetch + checkout + pull sequence.
+    example: |
+      git fetch origin main
+      git checkout main
+      git pull origin main
+
+anti_patterns:
+  - id: create-worktrees
+    description: "Creating git worktrees for branch setup"
+    why_bad: "This project uses simple branch checkout, not worktrees. Worktrees add unnecessary complexity."
+
+  - id: install-npm-packages
+    description: "Running npm install or yarn install during setup"
+    why_bad: "This is a shell-script and GitHub Actions project. There are no Node.js dependencies to install."
+
+  - id: open-ide
+    description: "Attempting to open an IDE or editor during setup"
+    why_bad: "This skill runs in CLI context. IDE integration is not part of the setup procedure."
+
+  - id: branch-from-stale-main
+    description: "Creating branch without fetching and pulling main first"
+    why_bad: "Results in a branch based on outdated code that needs immediate rebasing."
+
+  - id: skip-context-creation
+    description: "Creating branch but not writing context.json"
+    why_bad: "Workflow depends on context.json for status tracking and finish operations."
+
+procedure:
+  - step: "Fetch and update main"
+    detail: |
+      Update main branch to latest remote state.
+      This prevents branching from stale code.
+    commands:
+      - "git fetch origin main"
+      - "git checkout main"
+      - "git pull origin main"
+
+  - step: "Create feature branch"
+    detail: |
+      Create the feature branch from the updated main.
+      Handle errors gracefully:
+      - If branch exists locally: ask user how to proceed
+      - If branch exists only on remote: ask user if they want to track it
+    commands:
+      - "git checkout -b <branch> main"
+
+  - step: "Create workflow context directory"
+    detail: |
+      Create the context directory for this workflow.
+      The directory path is .claude/workflow/<branch>/.
+    commands:
+      - "mkdir -p .claude/workflow/<branch>"
+
+  - step: "Write context.json"
+    detail: |
+      Write workflow metadata to context.json:
+      - source: "text" (input source type)
+      - title: the human-readable description
+      - branch: the full branch name
+      - type: the inferred type (feat, fix, ci, etc.)
+      - createdAt: ISO 8601 timestamp
+    commands:
+      - 'Write context.json to .claude/workflow/<branch>/context.json'
+
+  - step: "Report completion"
+    detail: |
+      Inform the calling workflow skill that setup is complete:
+      - Confirm current branch matches the requested branch
+      - Confirm context.json location
+      - Signal readiness for implementation delegation
+
+handoffs:
+  - skill: workflow
+    when: "Reports back to workflow after setup is complete"

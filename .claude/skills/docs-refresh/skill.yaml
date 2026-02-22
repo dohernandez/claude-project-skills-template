@@ -1,0 +1,110 @@
+name: docs-refresh
+kind: gate
+version: "1.0.0"
+description: "Keep CLAUDE.md and project documentation in sync with actual skill files and project structure."
+severity: high
+tags:
+  - documentation
+  - skills
+  - repo-hygiene
+
+purpose: |
+  Keep project documentation in sync with source files.
+
+  Currently handles:
+  - CLAUDE.md skills listing maintenance
+  - CLAUDE.md repository structure section
+  - CLAUDE.md commands section
+
+  This is a manual process. There is no task runner, no generated REFERENCE.md,
+  and no automated documentation pipeline. CLAUDE.md is the single source of truth.
+
+owns:
+  - "CLAUDE.md skills listing maintenance"
+  - "CLAUDE.md repository structure accuracy"
+  - "Documentation sync between skill files and CLAUDE.md"
+
+permissions:
+  - "You MUST update CLAUDE.md when adding/removing skills"
+  - "You MUST verify repository structure section matches actual files"
+
+inputs_required:
+  - id: mode
+    description: "What to refresh"
+    options:
+      - value: skills
+        description: "Update skills listing in CLAUDE.md only"
+      - value: full
+        description: "Update all sections of CLAUDE.md (skills, structure, commands)"
+    default: skills
+
+documentation_sources:
+  claude_instructions:
+    description: "Project-level Claude instructions with skills listing"
+    sources:
+      - path: ".claude/skills/*/skill.yaml"
+        extracts: "Skill name, kind, description (for skills listing)"
+      - path: ".github/workflows/*.yml"
+        extracts: "Workflow file names (for repository structure)"
+      - path: "scripts/*.sh"
+        extracts: "Script file names (for repository structure)"
+    output:
+      file: "CLAUDE.md"
+      generator: "Manual update"
+    update_trigger: "When skills are added, removed, or project structure changes"
+
+patterns:
+  - id: skills-listing-sync
+    description: "CLAUDE.md skills listing must match actual skill directories"
+    example: |
+      1. ls .claude/skills/
+      2. Read each skill.yaml for name and description
+      3. Ensure CLAUDE.md has matching entries
+
+  - id: structure-matches-files
+    description: "Repository Structure section in CLAUDE.md must match actual files"
+    example: |
+      1. Check .github/workflows/ for workflow files
+      2. Check scripts/ for shell scripts
+      3. Update CLAUDE.md if files were added or removed
+
+  - id: never-invent-content
+    description: "Only document what actually exists. Never add entries for planned but unwritten files."
+
+anti_patterns:
+  - id: stale-skills-listing
+    description: "Skills listing in CLAUDE.md doesn't match .claude/skills/ directories"
+    why_bad: "Claude uses wrong information about available skills"
+
+  - id: stale-structure
+    description: "Repository Structure section lists files that don't exist or misses new ones"
+    why_bad: "Misleading project overview for both Claude and developers"
+
+  - id: skip-after-skill-change
+    description: "Creating or removing a skill without updating CLAUDE.md"
+    why_bad: "CLAUDE.md becomes stale. Claude won't know about new skills."
+
+procedure:
+  - step: "Inventory current skills"
+    detail: "List all skill directories and read their skill.yaml files"
+    commands:
+      - "ls .claude/skills/"
+
+  - step: "Compare with CLAUDE.md"
+    detail: "Read CLAUDE.md and check if all skills are documented accurately"
+
+  - step: "Update skills listing"
+    detail: "Add missing skills, remove deleted ones, fix descriptions"
+
+  - step: "Check repository structure"
+    detail: |
+      Verify the Repository Structure section:
+      - List .github/workflows/ files
+      - List scripts/ files
+      - Compare with what CLAUDE.md documents
+
+  - step: "Update structure if needed"
+    detail: "Edit CLAUDE.md to match actual project structure"
+
+  - step: "Review commands"
+    detail: "Ensure documented commands match what scripts actually run"

@@ -1,0 +1,134 @@
+kind: methodology
+ownership: engineering
+stop_hook: null
+
+description: |
+  Structured implementation methodology for non-bugfix work (features, chores,
+  refactors, docs). Ensures work is properly scoped, planned, implemented
+  following project patterns, and verified before completion.
+
+  Phases: Scope -> Plan -> Implement -> Verify
+
+inputs:
+  - name: task_description
+    description: Description of the task from ticket or user
+    required: true
+
+  - name: task_type
+    description: Type of task (feat, chore, refactor, docs)
+    required: false
+
+outputs:
+  - name: scope_document
+    description: Clear definition of what is in/out of scope
+
+  - name: implementation_plan
+    description: Files and approach for implementation
+
+  - name: verification_result
+    description: Review and lint results
+
+patterns:
+  phases:
+    - id: T1
+      name: Scope
+      goal: Understand requirements and define boundaries
+      output: Clear scope with deliverables and exclusions
+      can_skip: false
+
+    - id: T2
+      name: Plan
+      goal: Design approach before writing code
+      output: Implementation plan with files and approach
+      can_skip: false
+
+    - id: T3
+      name: Implement
+      goal: Write code following project patterns
+      output: Working code changes
+      can_skip: false
+
+    - id: T4
+      name: Verify
+      goal: Ensure implementation is complete and correct
+      output: Changes reviewed, no obvious errors, ready for commit
+      can_skip: false
+
+anti_patterns:
+  - name: code_before_scope
+    why_bad: May build the wrong thing
+    what_to_do: Always clarify scope first, ask questions
+
+  - name: skip_plan_approval
+    why_bad: May take wrong approach, wasted effort
+    what_to_do: Show plan to user, get explicit approval
+
+  - name: over_engineering
+    why_bad: Scope creep, harder to review
+    what_to_do: Minimal changes only, save extras for later
+
+  - name: skip_verification
+    why_bad: May introduce errors or regressions
+    what_to_do: Always review diff and run available linters before commit
+
+procedures:
+  - name: task_flow
+    description: Complete task from request to verified implementation
+    steps:
+      - phase: T1 - Scope
+        actions:
+          - Read task description and any context
+          - Identify core requirements
+          - Identify out-of-scope items
+          - Clarify ambiguities with user
+          - Document scope
+        failure_action: Ask user for clarification
+
+      - phase: T2 - Plan
+        actions:
+          - Explore relevant parts of the codebase
+          - Identify files to create/modify
+          - Consider interactions with existing scripts and workflows
+          - Document plan
+          - Get user approval
+        failure_action: Revise plan based on feedback
+
+      - phase: T3 - Implement
+        actions:
+          - Follow existing code patterns
+          - Work in small increments
+          - Keep changes minimal and focused
+          - Use proper shell scripting practices
+        failure_action: Fix issues, iterate
+
+      - phase: T4 - Verify
+        actions:
+          - Review diff against original scope
+          - Run shellcheck on shell scripts if available
+          - Validate YAML syntax on workflow files if available
+          - Check for common issues
+        failure_action: Fix problems found, re-verify
+
+examples:
+  - name: Add retry logic to E2E runner
+    task: "Add configurable retry count to run-e2e.sh"
+    scope: "Retry logic for test execution, no changes to triggers or reporting"
+    plan: "Add retry loop in run-e2e.sh, pass count from workflow input"
+    result: "Retry logic working, shellcheck passes, ready for commit"
+
+  - name: Add new workflow dispatch input
+    task: "Add profile parameter to run-e2e.yml dispatch payload"
+    scope: "New input parameter, update script to consume it"
+    plan: "Add input to workflow, pass as env var to script, update script"
+    result: "New input accepted and used, YAML valid, ready for commit"
+
+context: |
+  This methodology is invoked for non-bugfix work in the CI/E2E runner project.
+  It ensures disciplined implementation that produces:
+  1. Clear scope (prevents scope creep)
+  2. Approved plan (prevents wasted effort)
+  3. Clean implementation (follows patterns)
+  4. Verified changes (no obvious errors)
+
+  The key insight is: plan before building. Most features go wrong because
+  developers start coding before understanding what's needed.

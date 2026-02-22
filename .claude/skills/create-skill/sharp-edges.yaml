@@ -1,0 +1,36 @@
+# Sharp edges for create-skill
+#
+# NOTE: The `detect` field is informational only - it shows how to manually
+# check for the edge case. These are NOT automatically enforced.
+
+edges:
+  - id: name-mismatch
+    description: "SKILL.md frontmatter name differs from folder basename"
+    detect: "Compare folder name with name: field in SKILL.md frontmatter"
+    impact: "Breaks skill lookup. Claude cannot match the skill to its directory."
+    fix: "Ensure SKILL.md frontmatter name: exactly matches the folder basename."
+    severity: critical
+
+  - id: yaml-indentation-breaks-parse
+    description: "YAML parse fails due to indentation or unquoted colons"
+    detect: "Open the YAML file and check for syntax errors"
+    impact: "Skill YAML files become unusable. Agent cannot read patterns or procedure."
+    fix: |
+      - Use consistent 2-space indentation
+      - Quote strings containing ':' or special characters
+      - Validate YAML syntax before committing
+    severity: high
+
+  - id: patterns-duplicated-in-skillmd
+    description: "SKILL.md restates patterns/anti-patterns instead of pointing to YAML"
+    detect: "Manual review of SKILL.md for duplicate rule content"
+    impact: "Rules drift and the multi-YAML system stops being canonical."
+    fix: "Move details into skill.yaml and keep SKILL.md pointer-level only."
+    severity: medium
+
+  - id: missing-claudemd-entry
+    description: "Skill files created but not added to CLAUDE.md"
+    detect: "Check if skill name appears in CLAUDE.md"
+    impact: "Claude does not know about the new skill or when to use it."
+    fix: "Add the skill to CLAUDE.md with a brief description of when to use it."
+    severity: high

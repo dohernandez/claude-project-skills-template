@@ -1,0 +1,50 @@
+name: workflow-finish
+version: "1.0.0"
+
+dependencies:
+  - skill: workflow
+    relationship: "Cleanup counterpart to workflow start"
+    optional: false
+    direction: inbound
+
+composition:
+  - when: "Finishing and cleaning up after a completed workflow"
+    sequence:
+      - workflow-finish
+
+  - when: "Full lifecycle: merge then finish"
+    sequence:
+      - pr-merge
+      - workflow-finish
+
+triggers:
+  - pattern: "finish|cleanup|done|close branch|delete branch|workflow finish"
+    suggest: workflow-finish
+
+complements:
+  - skill: pr-merge
+    relationship: "Usually invoked after PR is merged"
+  - skill: workflow
+    relationship: "Counterpart to workflow start"
+
+boundaries:
+  owns:
+    - "Local branch deletion with safety checks"
+    - "Remote branch deletion after merge verification"
+    - "Workflow context directory cleanup (.claude/workflow/<branch>/)"
+    - "Confirmation prompts for unmerged PR branches"
+  defers_to:
+    - "PR merging -> pr-merge (must merge before cleanup)"
+    - "Workflow orchestration -> workflow"
+    - "Git push operations -> handled directly with gh/git CLI"
+  extension_points:
+    - "Future retrospective skills can capture learnings before cleanup"
+    - "Future metrics skills can record workflow duration and outcomes"
+    - "Future notification skills can announce completed workflows to Slack"
+    - "Future archival skills can backup workflow context before deletion"
+
+common_questions:
+  - question: "What if the PR hasn't been merged yet?"
+    answer: "Show warning, confirm with user before deleting."
+  - question: "Should I delete the remote branch too?"
+    answer: "Yes, after verifying merge. Both local and remote."

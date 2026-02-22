@@ -1,0 +1,119 @@
+kind: utility
+ownership: engineering
+
+description: |
+  Cleanup git branches after a PR is merged.
+  Removes local branch, remote branch, and workflow context files.
+
+  Usage:
+  - /workflow-finish                    # Current branch
+  - /workflow-finish <branch-name>      # Specific branch
+
+inputs:
+  - name: target
+    description: Branch name or omit for current branch
+    required: false
+    examples:
+      - feat/add-retry-logic-to-e2e-pipeline
+      - fix/webhook-reaction-step
+      - ""
+
+outputs:
+  - name: cleanup_status
+    description: What was cleaned up (branch, context)
+
+patterns:
+  branch_name_regex: "^(feat|fix|chore|docs|ci)/"
+
+  cleanup_commands:
+    delete_remote: "git push origin --delete <branch>"
+    delete_local: "git branch -D <branch>"
+    remove_context: "rm -rf .claude/workflow/<branch>/"
+
+anti_patterns:
+  - name: delete_without_verifying_merge
+    why_bad: May lose work if PR was not merged
+    what_to_do: Always check PR state via gh pr list before deleting
+
+  - name: force_finish_without_confirmation
+    why_bad: User may not realize PR is not merged
+    what_to_do: Warn and ask for confirmation if PR is not merged
+
+  - name: delete_branch_while_on_it
+    why_bad: Git will fail to delete current branch
+    what_to_do: Switch to main first before deleting
+
+  - name: failing_on_already_deleted
+    why_bad: Makes cleanup non-idempotent
+    what_to_do: Ignore errors for already-deleted resources
+
+procedures:
+  - name: workflow_finish
+    description: Cleanup after PR is merged
+    steps:
+      - phase: Resolve Target Branch
+        actions:
+          - If no argument, use current branch
+          - If branch name, use directly
+        commands:
+          - 'git branch --show-current'
+
+      - phase: Verify PR Merged
+        actions:
+          - Check PR state for target branch
+          - If not merged, warn and ask for confirmation
+        commands:
+          - 'gh pr list --head <branch> --state all --json number,state,mergedAt'
+
+      - phase: Switch to Main
+        condition: Currently on target branch
+        actions:
+          - Checkout main
+          - Pull latest
+        commands:
+          - 'git checkout main'
+          - 'git pull origin main'
+
+      - phase: Cleanup
+        actions:
+          - Delete remote branch
+          - Delete local branch
+          - Remove workflow context
+        commands:
+          - 'git push origin --delete <branch>'
+          - 'git branch -D <branch>'
+          - 'rm -rf .claude/workflow/<branch>/'
+
+      - phase: Report
+        actions:
+          - Show cleanup summary table
+          - Confirm all items cleaned
+
+examples:
+  - name: Finish current branch
+    request: "/workflow-finish"
+    expected_output: |
+      Workflow finished for `feat/add-retry-logic`
+
+      | Item | Status |
+      |------|--------|
+      | PR #12 | Merged |
+      | Remote branch | Deleted |
+      | Local branch | Deleted |
+      | Workflow context | Cleaned |
+
+  - name: Finish by branch name
+    request: "/workflow-finish feat/add-retry-logic-to-e2e-pipeline"
+    expected_output: |
+      Workflow finished for `feat/add-retry-logic-to-e2e-pipeline`
+      ...
+
+context: |
+  This skill handles cleanup after a PR is merged. It's the final step
+  in the workflow lifecycle: start -> work -> commit -> PR -> merge -> finish.
+
+  The skill is designed to be safe and idempotent:
+  - Verifies PR is merged before deleting
+  - Asks for confirmation if PR is not merged
+  - Ignores already-deleted resources
+  - Reports what was cleaned up

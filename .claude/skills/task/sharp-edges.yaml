@@ -1,0 +1,77 @@
+# Sharp edges for task implementation
+
+edges:
+  - id: coding-before-scope
+    description: "Starting to write code before scope is clear"
+    detect: "Code changes made before scope documented"
+    impact: "May build wrong thing, wasted effort"
+    fix: |
+      Always complete T1 (Scope) first:
+      1. Read the full task description
+      2. Identify what IS and IS NOT in scope
+      3. Ask clarifying questions if anything is ambiguous
+      4. Document scope before moving to T2
+    severity: critical
+
+  - id: skipping-plan-approval
+    description: "Implementing without user approval on the plan"
+    detect: "Code written before plan shown to user"
+    impact: "May take wrong approach, significant rework"
+    fix: |
+      In T2 (Plan), always:
+      1. Document the planned approach
+      2. List files to create/modify
+      3. Show plan to user
+      4. Wait for explicit approval
+      5. Only then proceed to T3
+    severity: high
+
+  - id: scope-creep
+    description: "Adding features or improvements not in original scope"
+    detect: "Changes to files or functionality not in the plan"
+    impact: "Larger PR, harder to review, potential issues"
+    fix: |
+      During T3 (Implement):
+      1. Check each change against the approved plan
+      2. If you notice something that "should" be improved, note it
+      3. Don't implement improvements - save for separate task
+      4. Stay strictly within approved scope
+    severity: medium
+
+  - id: not-reviewing-changes
+    description: "Skipping the diff review before considering work done"
+    detect: "No review of changes against scope before commit"
+    impact: "May miss unintended changes, leftover debug code, or scope violations"
+    fix: |
+      In T4 (Verify), always:
+      1. Review the full diff (git diff --stat and git diff)
+      2. Check every changed file against the approved plan
+      3. Look for leftover debug code, TODO comments, or hardcoded values
+      4. Run available linters (shellcheck, yamllint) on changed files
+      5. Only consider work complete after thorough review
+    severity: critical
+
+  - id: vague-scope
+    description: "Scope defined but too vague to implement"
+    detect: "Scope doesn't specify concrete deliverables"
+    impact: "Ambiguity leads to wrong implementation"
+    fix: |
+      Scope must be specific:
+      - BAD: "Improve the runner"
+      - GOOD: "Add configurable timeout to the E2E test step in run-e2e.sh"
+
+      If scope is vague, ask user for specifics before proceeding.
+    severity: medium
+
+  - id: plan-without-files
+    description: "Plan doesn't specify which files to change"
+    detect: "Plan is conceptual but lacks file paths"
+    impact: "May start changing wrong files, discover issues late"
+    fix: |
+      Plan should always include:
+      1. Specific file paths to create
+      2. Specific file paths to modify
+      3. How changes interact with existing files
+
+      If unsure which files, explore codebase first.
+    severity: medium

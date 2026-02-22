@@ -1,0 +1,43 @@
+# Sharp edges for workflow-finish
+
+edges:
+  - id: deleting-unmerged-pr
+    description: "Deleting branch when PR is not merged"
+    detect: "gh pr list shows state != MERGED"
+    impact: "Work is lost if branch is deleted without merge"
+    fix: |
+      Always verify PR state before deleting:
+      1. Run: gh pr list --head <branch> --state all --json state
+      2. If state != MERGED, warn user
+      3. Only proceed with explicit confirmation
+    severity: critical
+
+  - id: deleting-current-branch
+    description: "Trying to delete the branch you're currently on"
+    detect: "git branch --show-current == target branch"
+    impact: "Git will fail with error: cannot delete checked out branch"
+    fix: |
+      Switch to main before deleting:
+      1. git checkout main
+      2. git pull origin main
+      3. Then delete the target branch
+    severity: high
+
+  - id: remote-branch-already-deleted
+    description: "Trying to delete remote branch that was already deleted (by squash merge)"
+    detect: "git push --delete fails with 'remote ref does not exist'"
+    impact: "Script fails if not handling this case"
+    fix: |
+      Ignore errors when deleting remote:
+      git push origin --delete <branch> 2>/dev/null || echo "Already deleted"
+      Squash merges auto-delete the branch on GitHub.
+    severity: low
+
+  - id: workflow-context-orphaned
+    description: "Workflow context exists but branch is already deleted"
+    detect: ".claude/workflow/<branch>/ exists but branch doesn't"
+    impact: "Stale context files accumulate"
+    fix: |
+      Always clean up workflow context regardless of branch state:
+      rm -rf .claude/workflow/<branch>/ 2>/dev/null || true
+    severity: low

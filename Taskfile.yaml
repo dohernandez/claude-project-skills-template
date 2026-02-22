@@ -1,0 +1,6 @@
+version: "3"
+
+includes:
+  claude:
+    desc: Tasks for Claude Code skills management
+    taskfile: ./taskfiles/claude/Taskfile.yaml

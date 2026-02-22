@@ -1,0 +1,38 @@
+# Collaboration: skill dependencies and composition
+
+name: create-skill
+version: "1.0.0"
+
+dependencies:
+  - skill: docs-refresh
+    direction: outbound
+    required: false
+    reason: "After scaffolding a new skill, docs-refresh updates CLAUDE.md"
+
+composition:
+  - when: "Creating a brand new skill"
+    sequence:
+      - create-skill
+      - docs-refresh
+
+triggers:
+  - pattern: "create a skill|new skill|add skill|scaffold skill|skill template|/create-skill"
+    suggest: create-skill
+
+complements:
+  - skill: docs-refresh
+    relationship: "After creating a skill, refresh docs to update CLAUDE.md skills listing"
+
+boundaries:
+  owns:
+    - "Skill directory scaffolding (skill.yaml, SKILL.md, collaboration.yaml)"
+    - "Skill template generation and structure validation"
+    - "Skill naming conventions and metadata defaults"
+  defers_to:
+    - "Documentation updates -> docs-refresh"
+    - "Skill implementation logic -> the created skill itself"
+    - "Committing new skill files -> commit"
+  extension_points:
+    - "Future skill-validator skills can enforce naming and structure conventions"
+    - "Future test-scaffold skills can auto-generate test stubs for new skills"
+    - "Future architecture-checker skills can verify skill placement and dependencies"

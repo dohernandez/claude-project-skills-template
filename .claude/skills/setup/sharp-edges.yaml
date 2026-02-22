@@ -1,0 +1,66 @@
+# Sharp edges for setup
+#
+# NOTE: The `detect` field is informational only - it shows how to manually
+# check for the edge case. These are NOT automatically enforced.
+
+sharp_edges:
+  - id: gh-cli-not-installed
+    description: "GitHub CLI (gh) not installed"
+    severity: critical
+    symptoms:
+      - "gh: command not found"
+      - "zsh: command not found: gh"
+    solution: |
+      Install GitHub CLI:
+        brew install gh
+    verification: "gh --version"
+
+  - id: gh-cli-not-authenticated
+    description: "GitHub CLI installed but not authenticated"
+    severity: critical
+    symptoms:
+      - "gh auth status shows 'You are not logged in'"
+      - "gh api calls return 401"
+      - "Cannot create PRs or interact with GitHub"
+    solution: |
+      Authenticate with GitHub:
+        gh auth login
+      Follow the interactive prompts to complete authentication.
+    verification: "gh auth status  # Should show logged in"
+
+  - id: scripts-not-executable
+    description: "Shell scripts lack execute permission"
+    severity: high
+    symptoms:
+      - "Permission denied when running scripts"
+      - "bash: ./scripts/run-e2e.sh: Permission denied"
+    solution: |
+      Make scripts executable:
+        chmod +x scripts/*.sh
+    verification: "ls -la scripts/  # Should show -rwxr-xr-x"
+
+  - id: confused-about-task-runner
+    description: "Trying to use task runner commands in this repo"
+    severity: medium
+    symptoms:
+      - "task: command not found"
+      - "task: No Taskfile found"
+      - Developer running task commands expecting them to work
+    solution: |
+      The task commands documented in CLAUDE.md (task consensus:deploy, task node:run:dev, etc.)
+      run inside the TARGET repo (genlayer-node), not this repo.
+      This repo uses shell scripts in scripts/ and GitHub Actions workflows.
+    verification: "ls scripts/  # These are the scripts for this repo"
+
+  - id: missing-repo-permissions
+    description: "gh CLI lacks permissions for the target repository"
+    severity: high
+    symptoms:
+      - "gh api returns 403 or 404 for target repo"
+      - "Cannot dispatch workflows to target repo"
+    solution: |
+      Ensure your GitHub token has access to both:
+      - This repo (ci-core-e2e-runner)
+      - The target repo (e.g., genlayer-node)
+      Re-authenticate if needed: gh auth login
+    verification: "gh api repos/genlayerlabs/ci-core-e2e-runner  # Should return repo info"

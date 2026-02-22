@@ -1,0 +1,81 @@
+version: "3"
+
+tasks:
+  validate-skill:
+    desc: Run validation commands from a skill's validations.yaml
+    summary: |
+      Validate a skill by running commands defined in its validations.yaml.
+
+      Usage:
+        task claude:validate-skill -- --skill commit
+        task claude:validate-skill -- --skill commit --mode all
+        task claude:validate-skill -- --skill pr-create --mode on-stop
+
+      Options:
+        --skill SKILL    Skill name (folder name under .claude/skills/) [required]
+        --mode MODE      Which validations to run: "on-stop" (default) or "all"
+        --debug          Enable debug logging
+
+      Exit codes:
+        0 - All validations passed
+        1 - One or more validations failed
+    cmds:
+      - ./taskfiles/claude/scripts/validate-skill.sh {{.CLI_ARGS}}
+    dir: "{{.USER_WORKING_DIR}}"
+
+  audit-skills:
+    desc: Run semantic skill audit (multi-YAML pattern compliance)
+    summary: |
+      Semantic skill auditor that enforces multi-YAML pattern compliance.
+
+      Checks performed:
+        - skill.yaml exists and declares kind
+        - Required files present based on kind
+        - Collaboration reference integrity
+        - Name/description constraints
+        - Best practices (SKILL.md conciseness, procedure sections)
+
+      Usage:
+        task claude:audit-skills
+        task claude:audit-skills -- --strict
+
+      Options:
+        --strict    Fail on warnings
+        --debug     Enable debug logging
+
+      Exit codes:
+        0 - Audit passed
+        1 - Errors found (or warnings in strict mode)
+    cmds:
+      - ./taskfiles/claude/scripts/audit-skills.sh {{.CLI_ARGS}}
+    dir: "{{.USER_WORKING_DIR}}"
+
+  audit-skills-strict:
+    desc: Run semantic skill audit in strict mode
+    summary: |
+      Same as audit-skills but fails on any warnings.
+      Use this in CI to enforce all best practices.
+    cmds:
+      - ./taskfiles/claude/scripts/audit-skills.sh --strict
+    dir: "{{.USER_WORKING_DIR}}"
+
+  list-skills:
+    desc: List all available skills
+    summary: |
+      List all skills in .claude/skills/ directory with their kind and description.
+    cmds:
+      - |
+        echo ""
+        echo "Available Skills"
+        echo "================"
+        for dir in .claude/skills/*/; do
+          if [[ -f "${dir}skill.yaml" ]]; then
+            skill=$(basename "$dir")
+            kind=$(grep -E '^kind:' "${dir}skill.yaml" 2>/dev/null | head -1 | sed 's/kind:[[:space:]]*//' | sed 's/"//g' || echo "unknown")
+            desc=$(grep -E '^description:' "${dir}skill.yaml" 2>/dev/null | head -1 | sed 's/description:[[:space:]]*//' | sed 's/"//g' | cut -c1-60 || echo "-")
+            printf "  %-25s [%-10s] %s\n" "$skill" "$kind" "$desc"
+          fi
+        done
+        echo ""
+    dir: "{{.USER_WORKING_DIR}}"
+    silent: true

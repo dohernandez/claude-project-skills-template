@@ -1,0 +1,46 @@
+# Collaboration: skill dependencies and composition
+
+name: setup
+version: "1.0.0"
+
+dependencies:
+  - skill: docs-refresh
+    direction: outbound
+    required: false
+    reason: "After setup, docs-refresh can verify CLAUDE.md is current"
+
+composition:
+  - when: "Setting up the project for the first time"
+    sequence:
+      - setup
+
+  - when: "Setting up and verifying docs"
+    sequence:
+      - setup
+      - docs-refresh
+
+triggers:
+  - pattern: "setup|onboarding|getting started|new developer|configure environment|/setup"
+    suggest: setup
+
+complements:
+  - skill: docs-refresh
+    relationship: "After setup, docs-refresh can verify CLAUDE.md is current"
+  - skill: workflow
+    relationship: "After setup, user typically starts a workflow"
+
+boundaries:
+  owns:
+    - "Project environment setup and prerequisites verification"
+    - "Self-hosted runner provisioning guidance"
+    - "Tool installation checks (Docker, Go, Task, Node.js, etc.)"
+    - "GitHub CLI authentication and repository access validation"
+  defers_to:
+    - "Documentation updates -> docs-refresh"
+    - "Workflow execution -> workflow"
+    - "CI pipeline configuration -> run-e2e.yml workflow files"
+  extension_points:
+    - "Future VM-provisioning skills can automate runner setup from scratch"
+    - "Future dependency-checker skills can validate tool versions and compatibility"
+    - "Future secrets-manager skills can configure HMAC keys and GitHub tokens during setup"
+    - "Future health-check skills can verify runner readiness before accepting dispatches"

@@ -1,0 +1,77 @@
+# Sharp edges for workflow
+#
+# NOTE: The `detect` field is informational only - it shows how to manually
+# check for the edge case. These are NOT automatically enforced.
+
+edges:
+  - id: uncommitted-changes-lost
+    description: "Starting new workflow with uncommitted changes in working directory"
+    detect: "git status --porcelain (non-empty output)"
+    impact: "User may lose work or accidentally include unrelated changes in new branch"
+    fix: |
+      Before starting workflow, always run git status.
+      If changes exist:
+      - Ask user to commit or stash changes
+      - Or confirm they want to carry changes to new branch
+    severity: high
+
+  - id: branch-already-exists
+    description: "Trying to create a branch that already exists locally or remotely"
+    detect: "git branch --list <branch-name> or git ls-remote --heads origin <branch-name>"
+    impact: "Branch creation fails, workflow cannot proceed"
+    fix: |
+      Check if branch exists before creating.
+      If exists locally: ask user if they want to switch to it
+      If exists remotely: ask user if they want to checkout and track it
+    severity: medium
+
+  - id: context-file-committed
+    description: "Workflow context files accidentally committed to repository"
+    detect: "git ls-files .claude/workflow/"
+    impact: "Personal workflow state pollutes repository history"
+    fix: |
+      Ensure .gitignore includes .claude/workflow/
+      If already committed: git rm --cached -r .claude/workflow/
+    severity: medium
+
+  - id: pr-not-merged-force-finish
+    description: "User requests finish but PR is not merged"
+    detect: "gh pr view <branch> --json state | jq '.state != \"MERGED\"'"
+    impact: "Branch deleted with potentially unmerged work"
+    fix: |
+      Always verify PR state before cleanup.
+      If not merged:
+      - Clearly warn user about unmerged PR
+      - Require explicit confirmation for force-finish
+      - Consider using git branch -D vs -d to require force
+    severity: critical
+
+  - id: orphaned-remote-branch
+    description: "Local branch deleted but remote branch remains"
+    detect: "git ls-remote --heads origin <branch-name>"
+    impact: "Clutter in remote repository, confusion about active branches"
+    fix: |
+      After deleting local branch, always attempt to delete remote:
+      git push origin --delete <branch-name>
+      Handle gracefully if remote doesn't exist (branch was never pushed)
+    severity: low
+
+  - id: main-branch-drift
+    description: "Main branch has diverged significantly while working on feature"
+    detect: "git rev-list --count main..origin/main (after fetch)"
+    impact: "Finish cleanup may have conflicts or surprises"
+    fix: |
+      During finish:
+      - Always fetch before switching to main
+      - git checkout main && git fetch && git pull
+      - Warn if there were many new commits
+    severity: low
+
+  - id: detached-head-state
+    description: "Starting workflow while in detached HEAD state"
+    detect: "git symbolic-ref HEAD fails"
+    impact: "Unclear starting point for new branch"
+    fix: |
+      Check for detached HEAD before starting.
+      If detached: warn user and ask to checkout a branch first.
+    severity: medium
