@@ -20,6 +20,9 @@ taskfiles/
     logger.sh          # Shared logging utilities
 Taskfile.yaml          # Root task runner config
 CLAUDE.md              # This file
+docs/
+  contributing/
+    bash-script-code-style.md  # Shell script conventions
 ```
 
 ## Skills
@@ -94,6 +97,10 @@ Follow Conventional Commits: `<type>(<scope>): <subject>`
 - Put patterns and anti-patterns in `skill.yaml`, not SKILL.md
 - Non-helper skills must define a Stop hook that runs validation
 - Target < 100 lines
+
+## Contributing
+
+- [Bash Script Code Style](docs/contributing/bash-script-code-style.md) — conventions for shell scripts (derived from the consensus-*.sh family)
 
 ## Customizing This Template
 
