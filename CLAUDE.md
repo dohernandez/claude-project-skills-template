@@ -11,16 +11,24 @@ Template repository for organizing Claude Code skills using the multi-YAML patte
     check-skill-structure.sh   # PostToolUse hook — validates skills on edit
 taskfiles/
   claude/
-    Taskfile.yaml      # Skill management tasks (validate, audit, list)
+    Taskfile.yaml      # Skill management tasks (validate, audit, list, reference)
     scripts/
       validate-skill.sh    # Run validations from a skill's validations.yaml
       audit-skills.sh      # Semantic auditor for multi-YAML compliance
       check-skill-yaml.sh  # Syntax checker
+  docs/
+    Taskfile.yaml      # Documentation generation tasks (refresh, check)
+    scripts/
+      generate-skill-reference.sh  # Generate docs/skills/REFERENCE.md
+      update-claude-md.sh          # Update CLAUDE.md skills table between markers
+      docs-refresh-check.sh        # Verify generated docs are in sync
   scripts/
     logger.sh          # Shared logging utilities
 Taskfile.yaml          # Root task runner config
 CLAUDE.md              # This file
 docs/
+  skills/
+    REFERENCE.md       # Auto-generated skill reference (do not edit)
   contributing/
     bash-script-code-style.md  # Shell script conventions
 ```
@@ -51,18 +59,26 @@ Each skill is a folder under `.claude/skills/` containing four canonical files:
 
 ### Available Skills
 
-- `commit` — Git commits with conventional message format and intelligent staging
-- `workflow` — Development lifecycle automation (start/status/finish branches)
-- `workflow-setup` — Create branch and initialize workflow context
-- `workflow-finish` — Post-merge cleanup (branch deletion, context removal)
-- `pr-create` — Create pull requests with conventional titles
-- `pr-merge` — Merge pull requests with strict CI validation
-- `bugfix` — Structured debugging process (reproduce, plan, fix, verify)
-- `task` — Task management and implementation tracking
-- `linear` — Linear issue integration
-- `setup` — Project setup and environment verification
-- `create-skill` — Scaffold new skills using the multi-YAML pattern
-- `docs-refresh` — Keep CLAUDE.md and docs in sync with actual skill files
+<!-- SKILLS_TABLE_START -->
+
+| Skill | Kind | Description |
+|-------|------|-------------|
+| `commit` (`/commit`) | action | Execute git commit with conventional commit message analysis, intelligent sta... |
+| `pr-create` | workflow | Creates GitHub pull requests with conventional commit-style titles following ... |
+| `pr-merge` (`/pr-merge`) | workflow | Merge GitHub pull requests with strict CI validation. Never bypasses failed c... |
+| `workflow` (`/workflow`) | workflow | Manage development lifecycle for CI/E2E runner work (start, status, finish). |
+| `bugfix` | methodology | Structured debugging methodology for fixing bugs. Ensures bugs are properly u... |
+| `task` | methodology | Structured implementation methodology for non-bugfix work (features, chores, ... |
+| `docs-refresh` (`/docs-refresh`) | gate | Auto-generate skill reference docs and keep CLAUDE.md skills table in sync. |
+| `setup` (`/setup`) | helper | Project setup and environment verification for ci-core-e2e-runner. |
+| `workflow-setup` | helper | Setup development branch and workflow context for task-based workflows. |
+| `workflow-finish` (`/workflow-finish`) | utility | Cleanup git branches after a PR is merged. Removes local branch, remote branc... |
+| `create-skill` (`/create-skill`) | meta | Scaffold a new Claude Code skill using the multi-YAML pattern for ci-core-e2e... |
+| `linear` | integration | Create and manage Linear issues using templates for the CI/E2E Runner project. |
+
+<!-- SKILLS_TABLE_END -->
+
+> Full details: [docs/skills/REFERENCE.md](docs/skills/REFERENCE.md)
 
 ## Commands
 
@@ -71,6 +87,9 @@ task claude:list-skills                          # List all skills
 task claude:audit-skills                         # Audit multi-YAML compliance
 task claude:audit-skills -- --strict             # Audit with strict mode
 task claude:validate-skill -- --skill <name>     # Validate a specific skill
+task claude:skills-reference                     # Generate docs/skills/REFERENCE.md
+task docs:refresh                                # Generate REFERENCE.md + update CLAUDE.md table
+task docs:refresh-check                          # Verify generated docs are in sync
 ```
 
 ## Conventions

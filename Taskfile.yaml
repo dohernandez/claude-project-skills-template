@@ -4,3 +4,6 @@ includes:
   claude:
     desc: Tasks for Claude Code skills management
     taskfile: ./taskfiles/claude/Taskfile.yaml
+  docs:
+    desc: Documentation generation and sync
+    taskfile: ./taskfiles/docs/Taskfile.yaml

@@ -1,110 +1,120 @@
 name: docs-refresh
 kind: gate
-version: "1.0.0"
-description: "Keep CLAUDE.md and project documentation in sync with actual skill files and project structure."
+version: "2.0.0"
+description: "Auto-generate skill reference docs and keep CLAUDE.md skills table in sync."
 severity: high
 tags:
   - documentation
   - skills
   - repo-hygiene
+  - generation
 
 purpose: |
-  Keep project documentation in sync with source files.
+  Auto-generate docs/skills/REFERENCE.md from skill.yaml files and keep the
+  CLAUDE.md skills table in sync between HTML marker comments.
 
-  Currently handles:
-  - CLAUDE.md skills listing maintenance
-  - CLAUDE.md repository structure section
-  - CLAUDE.md commands section
-
-  This is a manual process. There is no task runner, no generated REFERENCE.md,
-  and no automated documentation pipeline. CLAUDE.md is the single source of truth.
+  Pipeline:
+  1. generate-skill-reference.sh -> docs/skills/REFERENCE.md
+  2. update-claude-md.sh -> CLAUDE.md (between SKILLS_TABLE markers)
+  3. docs-refresh-check.sh -> verifies sync (CI gate)
 
 owns:
-  - "CLAUDE.md skills listing maintenance"
-  - "CLAUDE.md repository structure accuracy"
-  - "Documentation sync between skill files and CLAUDE.md"
+  - "docs/skills/REFERENCE.md generation"
+  - "CLAUDE.md skills table (between SKILLS_TABLE markers)"
+  - "Documentation sync between skill.yaml files and generated docs"
 
 permissions:
-  - "You MUST update CLAUDE.md when adding/removing skills"
-  - "You MUST verify repository structure section matches actual files"
+  - "You MUST run 'task docs:refresh' after adding/removing/modifying skills"
+  - "You MUST NOT hand-edit docs/skills/REFERENCE.md"
+  - "You MUST NOT hand-edit content between SKILLS_TABLE markers in CLAUDE.md"
 
-inputs_required:
-  - id: mode
-    description: "What to refresh"
-    options:
-      - value: skills
-        description: "Update skills listing in CLAUDE.md only"
-      - value: full
-        description: "Update all sections of CLAUDE.md (skills, structure, commands)"
-    default: skills
+entry_points:
+  - command: "task docs:refresh"
+    description: "Generate REFERENCE.md and update CLAUDE.md table"
+  - command: "task docs:refresh-check"
+    description: "Verify generated docs are in sync"
+  - command: "task claude:skills-reference"
+    description: "Generate REFERENCE.md only"
 
 documentation_sources:
-  claude_instructions:
-    description: "Project-level Claude instructions with skills listing"
+  skill_reference:
+    description: "Auto-generated skill reference document"
     sources:
       - path: ".claude/skills/*/skill.yaml"
-        extracts: "Skill name, kind, description (for skills listing)"
-      - path: ".github/workflows/*.yml"
-        extracts: "Workflow file names (for repository structure)"
-      - path: "scripts/*.sh"
-        extracts: "Script file names (for repository structure)"
+        extracts: "name, kind, description, version, severity, tags, purpose, owns, anti_patterns"
+      - path: ".claude/skills/*/sharp-edges.yaml"
+        extracts: "edge id, description"
+      - path: ".claude/skills/*/SKILL.md"
+        extracts: "user-invocable frontmatter field"
+    output:
+      file: "docs/skills/REFERENCE.md"
+      generator: "task claude:skills-reference"
+    update_trigger: "When any skill.yaml, sharp-edges.yaml, or SKILL.md frontmatter changes"
+
+  claude_md_table:
+    description: "Skills table in CLAUDE.md between HTML markers"
+    sources:
+      - path: ".claude/skills/*/skill.yaml"
+        extracts: "name, kind, description"
+      - path: ".claude/skills/*/SKILL.md"
+        extracts: "user-invocable frontmatter field"
     output:
       file: "CLAUDE.md"
-      generator: "Manual update"
-    update_trigger: "When skills are added, removed, or project structure changes"
+      generator: "task docs:refresh (update-claude-md.sh)"
+      section: "Between <!-- SKILLS_TABLE_START --> and <!-- SKILLS_TABLE_END -->"
+    update_trigger: "When skills are added, removed, or descriptions change"
 
 patterns:
-  - id: skills-listing-sync
-    description: "CLAUDE.md skills listing must match actual skill directories"
+  - id: run-refresh-after-changes
+    description: "Always run 'task docs:refresh' after skill changes, not manual edits"
     example: |
-      1. ls .claude/skills/
-      2. Read each skill.yaml for name and description
-      3. Ensure CLAUDE.md has matching entries
+      1. Create/modify/delete a skill
+      2. Run: task docs:refresh
+      3. Verify: task docs:refresh-check
+      4. Commit generated files with source changes
 
-  - id: structure-matches-files
-    description: "Repository Structure section in CLAUDE.md must match actual files"
+  - id: never-hand-edit-generated
+    description: "Never hand-edit REFERENCE.md or content between CLAUDE.md markers"
     example: |
-      1. Check .github/workflows/ for workflow files
-      2. Check scripts/ for shell scripts
-      3. Update CLAUDE.md if files were added or removed
+      # Wrong: directly editing docs/skills/REFERENCE.md
+      # Right: modify skill.yaml, then run task docs:refresh
 
-  - id: never-invent-content
-    description: "Only document what actually exists. Never add entries for planned but unwritten files."
+  - id: commit-generated-with-source
+    description: "Always commit generated docs in the same commit as source changes"
 
 anti_patterns:
-  - id: stale-skills-listing
-    description: "Skills listing in CLAUDE.md doesn't match .claude/skills/ directories"
-    why_bad: "Claude uses wrong information about available skills"
+  - id: stale-reference
+    description: "REFERENCE.md doesn't match current skill.yaml files"
+    why_bad: "Outdated reference document misleads Claude and developers"
 
-  - id: stale-structure
-    description: "Repository Structure section lists files that don't exist or misses new ones"
-    why_bad: "Misleading project overview for both Claude and developers"
+  - id: hand-edited-generated
+    description: "Manually editing REFERENCE.md or content between CLAUDE.md markers"
+    why_bad: "Changes will be overwritten on next task docs:refresh run"
 
   - id: skip-after-skill-change
-    description: "Creating or removing a skill without updating CLAUDE.md"
-    why_bad: "CLAUDE.md becomes stale. Claude won't know about new skills."
+    description: "Creating or removing a skill without running task docs:refresh"
+    why_bad: "Generated docs become stale. Refresh-check will fail."
+
+  - id: missing-markers
+    description: "CLAUDE.md missing SKILLS_TABLE_START/END markers"
+    why_bad: "update-claude-md.sh cannot update the skills table"
 
 procedure:
-  - step: "Inventory current skills"
-    detail: "List all skill directories and read their skill.yaml files"
+  - step: "Run the refresh pipeline"
+    detail: "Execute task docs:refresh to regenerate all docs"
     commands:
-      - "ls .claude/skills/"
+      - "task docs:refresh"
 
-  - step: "Compare with CLAUDE.md"
-    detail: "Read CLAUDE.md and check if all skills are documented accurately"
+  - step: "Verify sync"
+    detail: "Run the check to confirm everything is in sync"
+    commands:
+      - "task docs:refresh-check"
 
-  - step: "Update skills listing"
-    detail: "Add missing skills, remove deleted ones, fix descriptions"
+  - step: "Review changes"
+    detail: "Check git diff on REFERENCE.md and CLAUDE.md for correctness"
+    commands:
+      - "git diff docs/skills/REFERENCE.md"
+      - "git diff CLAUDE.md"
 
-  - step: "Check repository structure"
-    detail: |
-      Verify the Repository Structure section:
-      - List .github/workflows/ files
-      - List scripts/ files
-      - Compare with what CLAUDE.md documents
-
-  - step: "Update structure if needed"
-    detail: "Edit CLAUDE.md to match actual project structure"
-
-  - step: "Review commands"
-    detail: "Ensure documented commands match what scripts actually run"
+  - step: "Commit together"
+    detail: "Commit generated docs alongside the skill changes that triggered them"

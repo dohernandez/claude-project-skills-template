@@ -1,13 +1,13 @@
 # Collaboration: skill dependencies and composition
 
 name: docs-refresh
-version: "1.0.0"
+version: "2.0.0"
 
 dependencies:
   - skill: create-skill
     direction: inbound
     required: false
-    reason: "After creating a new skill, run docs-refresh to update CLAUDE.md"
+    reason: "After creating a new skill, run 'task docs:refresh' to regenerate docs"
 
 composition:
   - when: "Creating a new skill"
@@ -15,11 +15,11 @@ composition:
       - create-skill
       - docs-refresh
 
-  - when: "Modifying skill patterns or ownership"
+  - when: "Modifying skill metadata (description, kind, tags)"
     sequence:
       - docs-refresh
 
-  - when: "Adding or removing project files (workflows, scripts)"
+  - when: "Removing a skill"
     sequence:
       - docs-refresh
 
@@ -27,34 +27,32 @@ triggers:
   - pattern: "documentation|docs refresh|update docs|sync docs|/docs-refresh"
     suggest: docs-refresh
   - condition: ".claude/skills/*/skill.yaml modified"
-    action: "Run docs-refresh to update CLAUDE.md skills listing"
-  - condition: "Files added/removed in .github/workflows/ or scripts/"
-    action: "Run docs-refresh to update CLAUDE.md repository structure"
+    action: "Run 'task docs:refresh' to regenerate REFERENCE.md and CLAUDE.md table"
+  - condition: "Skill directory added or removed"
+    action: "Run 'task docs:refresh' to update generated docs"
 
 complements:
   - skill: create-skill
-    relationship: "After creating a skill, refresh docs to update CLAUDE.md"
+    relationship: "After creating a skill, docs-refresh regenerates reference docs"
   - skill: setup
-    relationship: "After setup, docs-refresh verifies CLAUDE.md is current"
+    relationship: "After setup, docs-refresh verifies generated docs are current"
 
 boundaries:
   owns:
-    - "CLAUDE.md content generation and synchronization"
-    - "Skills listing section in documentation"
-    - "Repository structure section in documentation"
+    - "docs/skills/REFERENCE.md generation"
+    - "CLAUDE.md skills table (between SKILLS_TABLE markers)"
   defers_to:
     - "Skill scaffolding -> create-skill"
     - "Committing documentation changes -> commit"
-    - "Workflow file creation -> workflow or workflow-setup"
+    - "CLAUDE.md sections outside markers -> manual editing"
   extension_points:
-    - "Future API-doc skills can register additional doc sections to refresh"
-    - "Future diagram-generator skills can auto-update architecture diagrams in CLAUDE.md"
-    - "Future monitoring skills can add runbook links to documentation"
+    - "Additional generated doc sections can be added to the refresh pipeline"
 
 workflow:
   after_skill_change:
     description: "Standard workflow after modifying any skill"
     steps:
-      - "Review .claude/skills/ for changes"
-      - "Update CLAUDE.md skills listing"
-      - "Commit CLAUDE.md with skill changes"
+      - "Run 'task docs:refresh'"
+      - "Verify with 'task docs:refresh-check'"
+      - "Review git diff on generated files"
+      - "Commit generated docs with skill changes"

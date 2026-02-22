@@ -1,0 +1,47 @@
+version: "3"
+
+tasks:
+  refresh:
+    desc: Generate REFERENCE.md and update CLAUDE.md skills table
+    summary: |
+      Regenerates docs/skills/REFERENCE.md from skill.yaml files and updates
+      the skills table in CLAUDE.md between marker comments.
+
+      Usage:
+        task docs:refresh
+    cmds:
+      - ./taskfiles/docs/scripts/generate-skill-reference.sh
+      - ./taskfiles/docs/scripts/update-claude-md.sh
+    dir: "{{.USER_WORKING_DIR}}"
+
+  refresh-check:
+    desc: Verify generated docs are in sync with skill sources
+    summary: |
+      Checks that REFERENCE.md and CLAUDE.md skills table match current
+      skill.yaml files. Exits non-zero if out of sync.
+
+      Usage:
+        task docs:refresh-check
+    cmds:
+      - ./taskfiles/docs/scripts/docs-refresh-check.sh
+    dir: "{{.USER_WORKING_DIR}}"
+
+  refresh-full:
+    desc: Full docs refresh (generate REFERENCE.md + update CLAUDE.md)
+    summary: |
+      Same as docs:refresh. Provided for symmetry with refresh-full-check.
+
+      Usage:
+        task docs:refresh-full
+    cmds:
+      - task: refresh
+
+  refresh-full-check:
+    desc: Full docs sync check (REFERENCE.md + CLAUDE.md table)
+    summary: |
+      Same as docs:refresh-check. Provided for symmetry with refresh-full.
+
+      Usage:
+        task docs:refresh-full-check
+    cmds:
+      - task: refresh-check

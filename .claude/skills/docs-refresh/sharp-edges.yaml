@@ -4,36 +4,50 @@
 # check for the edge case. These are NOT automatically enforced.
 
 edges:
-  - id: claude-md-skills-table-stale
-    description: "Added or removed a skill but didn't update CLAUDE.md skills listing"
-    detect: "Compare skill count in .claude/skills/ vs CLAUDE.md entries"
-    impact: "Claude won't know about new skills or will reference deleted ones"
+  - id: reference-out-of-sync
+    description: "REFERENCE.md doesn't match current skill.yaml files"
+    detect: "task docs:refresh-check"
+    impact: "Outdated reference document misleads Claude and developers"
+    fix: "Run 'task docs:refresh' to regenerate"
+    severity: high
+
+  - id: edited-generated-doc
+    description: "Hand-edited docs/skills/REFERENCE.md or content between CLAUDE.md markers"
+    detect: "Run 'task docs:refresh-check' — will show diff if manually edited"
+    impact: "Changes will be overwritten on next task docs:refresh run"
     fix: |
-      Update the skills listing in CLAUDE.md:
-      1. Add entry for new skill with description
-      2. Remove entry for deleted skill
-      3. Commit CLAUDE.md with the skill changes
+      1. Move any intentional changes to the source skill.yaml files
+      2. Run 'task docs:refresh' to regenerate from source
+    severity: high
+
+  - id: missing-markers
+    description: "CLAUDE.md missing <!-- SKILLS_TABLE_START --> or <!-- SKILLS_TABLE_END --> markers"
+    detect: "grep -c 'SKILLS_TABLE_START\\|SKILLS_TABLE_END' CLAUDE.md"
+    impact: "update-claude-md.sh will fail — cannot locate table insertion point"
+    fix: |
+      Add markers to CLAUDE.md around the skills table:
+      <!-- SKILLS_TABLE_START -->
+      (table content)
+      <!-- SKILLS_TABLE_END -->
+    severity: critical
+
+  - id: forgot-refresh-after-skill-change
+    description: "Created, renamed, or deleted a skill without running task docs:refresh"
+    detect: "task docs:refresh-check (will exit non-zero if out of sync)"
+    impact: "REFERENCE.md and CLAUDE.md skills table become stale"
+    fix: "Run 'task docs:refresh' and commit the generated changes"
     severity: high
 
   - id: claude-md-missing
     description: "CLAUDE.md file doesn't exist"
     detect: "test ! -f CLAUDE.md"
     impact: "Claude has no project-level instructions or skill awareness"
-    fix: "Create CLAUDE.md with project description and skills listing"
+    fix: "Create CLAUDE.md with project description and SKILLS_TABLE markers"
     severity: critical
 
   - id: structure-section-stale
     description: "Repository Structure section in CLAUDE.md lists wrong files"
     detect: "Compare listed files in CLAUDE.md with actual directory contents"
     impact: "Misleading project overview. Claude may reference non-existent files."
-    fix: |
-      1. List actual files: ls .github/workflows/ scripts/
-      2. Update the Repository Structure section in CLAUDE.md
-    severity: medium
-
-  - id: commands-section-stale
-    description: "Commands section in CLAUDE.md doesn't match actual scripts"
-    detect: "Compare documented commands with script contents"
-    impact: "Claude may suggest commands that don't work or miss new capabilities"
-    fix: "Review scripts/*.sh and update Commands section in CLAUDE.md"
+    fix: "Manually update the Repository Structure section in CLAUDE.md"
     severity: medium

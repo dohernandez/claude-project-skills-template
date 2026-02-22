@@ -1,0 +1,9 @@
+validations:
+  - id: docs-refresh-check
+    name: "Docs refresh sync check"
+    type: command
+    command: "task docs:refresh-check"
+    message: "Generated docs are out of sync. Run 'task docs:refresh' to fix."
+
+on_stop:
+  - docs-refresh-check
