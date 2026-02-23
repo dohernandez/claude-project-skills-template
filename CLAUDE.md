@@ -92,16 +92,28 @@ task docs:refresh                                # Generate REFERENCE.md + updat
 task docs:refresh-check                          # Verify generated docs are in sync
 ```
 
+## Git Workflow
+
+**Before committing**, always run:
+```bash
+task claude:audit-skills
+task docs:refresh-check
+```
+Do not commit if either fails.
+
+**Commit messages** follow [Conventional Commits](https://www.conventionalcommits.org/):
+- Format: `<type>(<scope>): <subject>`
+- Title: ≤50 chars, specific (avoid "improve", "enhance", "update")
+- Body: 1-2 sentences or omit
+- NO AI attribution (no Co-Authored-By, no tool references)
+
+Use `/commit` to generate commit messages.
+
+Use `/pr-create` to create pull requests.
+
+Use `/pr-merge` to merge pull requests.
+
 ## Conventions
-
-### Commits
-
-Follow Conventional Commits: `<type>(<scope>): <subject>`
-
-- Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
-- Title <= 50 characters, imperative mood, specific subjects
-- No AI attribution, no ticket references, no emojis
-- Never commit directly to main/master
 
 ### Skill Naming
 
