@@ -3,6 +3,30 @@
 > Auto-generated from `.claude/skills/*/skill.yaml` files.
 > Do not edit manually — run `task claude:skills-reference` to regenerate.
 
+## Skill Pattern
+
+Each skill is a folder under `.claude/skills/` containing four canonical files:
+
+| File | Purpose |
+|------|---------|
+| `SKILL.md` | Thin frontmatter + pointers — what Claude reads first |
+| `skill.yaml` | Canonical rules: patterns, procedure, ownership, anti-patterns |
+| `collaboration.yaml` | Dependencies, composition sequences, triggers |
+| `sharp-edges.yaml` | Common pitfalls with detection hints and fixes |
+
+### Skill Kinds
+
+| Kind | Description |
+|------|-------------|
+| action | Single-purpose automation |
+| workflow | Multi-step development lifecycle |
+| methodology | Structured approach/process |
+| gate | Pre-requisite checkers |
+| helper | Utility skills (no Stop hook required) |
+| utility | Small operational helpers |
+| meta | Skills for managing other skills |
+| integration | External service connectors |
+
 ## Overview
 
 | Skill | Kind | Description | Invocable |
@@ -12,6 +36,7 @@
 | `pr-merge` | workflow | Merge GitHub pull requests with strict CI validation. Never bypasses failed c... | yes |
 | `workflow` | workflow | Manage development lifecycle for CI/E2E runner work (start, status, finish). | yes |
 | `bugfix` | methodology | Structured debugging methodology for fixing bugs. Ensures bugs are properly u... | no |
+| `claude-md` | methodology | Methodology for authoring and maintaining CLAUDE.md. Enforces brevity, releva... | no |
 | `task` | methodology | Structured implementation methodology for non-bugfix work (features, chores, ... | no |
 | `docs-refresh` | gate | Auto-generate skill reference docs and keep CLAUDE.md skills table in sync. | yes |
 | `setup` | helper | Project setup and environment verification for ci-core-e2e-runner. | yes |
@@ -166,6 +191,31 @@ Structured debugging methodology for fixing bugs. Ensures bugs are properly unde
 - forgetting-to-remove-debug-output: Leaving debug echo/printf statements in scripts
 - cant-reproduce-proceeding-anyway: Proceeding to fix when bug can't be reproduced
 - related-issue-dismissal: New issues after fix dismissed without analysis
+
+### `claude-md`
+
+**Kind:** methodology | **Version:** 1.0.0 | **Severity:** high
+
+Methodology for authoring and maintaining CLAUDE.md. Enforces brevity, relevance, and structure.
+
+**Owns:**
+
+**Anti-patterns:**
+- full-directory-trees:
+- inline-reference-tables:
+- onboarding-content:
+- contributing-single-links:
+- duplicate-information:
+- over-documenting-structure:
+
+**Sharp edges:**
+- file-tree-in-structure: Using box-drawing characters (├ └ │) for directory trees in CLAUDE.md
+- line-count-creep: CLAUDE.md grows past ~120 lines
+- editing-between-markers: Hand-editing content between SKILLS_TABLE markers
+- missing-built-with: CLAUDE.md missing 'Built with:' declaration in first 15 lines
+- onboarding-sections: Adding Getting Started, Installation, or Customizing sections
+- reference-table-inline: Large reference tables (>5 rows) inline in CLAUDE.md
+- infinite-lint-loop: Claude loops trying to fix lint failures without understanding the patterns
 
 ### `task`
 

@@ -1,0 +1,9 @@
+validations:
+  - id: lint-claude-md
+    name: "CLAUDE.md lint check"
+    type: command
+    command: "task docs:lint-claude-md"
+    message: "CLAUDE.md failed lint checks. Run 'task docs:lint-claude-md' to see details."
+
+on_stop:
+  - lint-claude-md

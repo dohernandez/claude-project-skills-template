@@ -45,3 +45,16 @@ tasks:
         task docs:refresh-full-check
     cmds:
       - task: refresh-check
+
+  lint-claude-md:
+    desc: Validate CLAUDE.md structure and content rules
+    summary: |
+      Checks CLAUDE.md for quantifiable quality rules: line count, directory
+      tree characters, Built with declaration, SKILLS_TABLE markers, and
+      banned headings. Exits non-zero if any ERROR-level check fails.
+
+      Usage:
+        task docs:lint-claude-md
+    cmds:
+      - ./taskfiles/docs/scripts/lint-claude-md.sh
+    dir: "{{.USER_WORKING_DIR}}"

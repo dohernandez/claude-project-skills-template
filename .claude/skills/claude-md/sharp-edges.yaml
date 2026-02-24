@@ -1,0 +1,67 @@
+# Sharp edges for claude-md
+#
+# NOTE: The `detect` field is informational only - it shows how to manually
+# check for the edge case. These are NOT automatically enforced.
+
+edges:
+  - id: file-tree-in-structure
+    description: "Using box-drawing characters (├ └ │) for directory trees in CLAUDE.md"
+    detect: "grep -P '[├└│]' CLAUDE.md"
+    impact: "Bloats line count, goes stale as structure changes, Claude discovers structure via tools"
+    fix: |
+      Replace file tree with dirs-only format:
+      ```
+      .claude/skills/     — Skill definitions (one folder per skill)
+      taskfiles/          — Task runner configs and scripts
+      docs/               — Generated reference + contributing guides
+      ```
+    severity: high
+
+  - id: line-count-creep
+    description: "CLAUDE.md grows past ~120 lines"
+    detect: "wc -l CLAUDE.md"
+    impact: "Dilutes signal; Claude spends context on low-relevance content"
+    fix: |
+      1. Run the 80% relevance test on each section
+      2. Move reference material to docs/ and link
+      3. Remove content Claude can discover via tools
+      4. Collapse verbose instructions into terse rules
+    severity: medium
+
+  - id: editing-between-markers
+    description: "Hand-editing content between SKILLS_TABLE markers"
+    detect: "Check git diff for changes between <!-- SKILLS_TABLE_START --> and <!-- SKILLS_TABLE_END -->"
+    impact: "Changes overwritten on next 'task docs:refresh' run"
+    fix: "Revert manual changes. Use 'task docs:refresh' to regenerate the table."
+    severity: critical
+
+  - id: missing-built-with
+    description: "CLAUDE.md missing 'Built with:' declaration in first 15 lines"
+    detect: "head -15 CLAUDE.md | grep 'Built with:'"
+    impact: "Claude lacks tech stack context, may suggest wrong tools/patterns"
+    fix: "Add 'Built with: <tech1>, <tech2>, ...' line after behavioral instructions"
+    severity: high
+
+  - id: onboarding-sections
+    description: "Adding Getting Started, Installation, or Customizing sections"
+    detect: "grep -E '^## (Getting Started|Installation|Customizing)' CLAUDE.md"
+    impact: "Onboarding content belongs in README.md, not CLAUDE.md"
+    fix: "Move onboarding content to README.md or docs/. CLAUDE.md is for Claude, not humans."
+    severity: medium
+
+  - id: reference-table-inline
+    description: "Large reference tables (>5 rows) inline in CLAUDE.md"
+    detect: "Count table rows in CLAUDE.md sections outside markers"
+    impact: "Consumes line budget with content that's rarely needed every session"
+    fix: "Move table to docs/ as a reference document, add a link from CLAUDE.md"
+    severity: medium
+
+  - id: infinite-lint-loop
+    description: "Claude loops trying to fix lint failures without understanding the patterns"
+    detect: "Multiple consecutive failed lint runs with similar errors"
+    impact: "Wasted context window and user time"
+    fix: |
+      Read skill.yaml patterns FIRST, then make edits that conform.
+      The guide (patterns) is more important than the gate (linter).
+      Understand the WHY before fixing the WHAT.
+    severity: high

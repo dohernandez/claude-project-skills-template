@@ -487,6 +487,36 @@ emit_header() {
 HEADER
 }
 
+# Emit the skill pattern section (canonical files + kinds)
+emit_skill_pattern() {
+    cat << 'PATTERN'
+## Skill Pattern
+
+Each skill is a folder under `.claude/skills/` containing four canonical files:
+
+| File | Purpose |
+|------|---------|
+| `SKILL.md` | Thin frontmatter + pointers — what Claude reads first |
+| `skill.yaml` | Canonical rules: patterns, procedure, ownership, anti-patterns |
+| `collaboration.yaml` | Dependencies, composition sequences, triggers |
+| `sharp-edges.yaml` | Common pitfalls with detection hints and fixes |
+
+### Skill Kinds
+
+| Kind | Description |
+|------|-------------|
+| action | Single-purpose automation |
+| workflow | Multi-step development lifecycle |
+| methodology | Structured approach/process |
+| gate | Pre-requisite checkers |
+| helper | Utility skills (no Stop hook required) |
+| utility | Small operational helpers |
+| meta | Skills for managing other skills |
+| integration | External service connectors |
+
+PATTERN
+}
+
 # Emit the overview table
 emit_overview_table() {
     echo "## Overview"
@@ -670,6 +700,7 @@ generate_reference() {
 
     {
         emit_header
+        emit_skill_pattern
         emit_overview_table
         emit_skill_details
         emit_footer

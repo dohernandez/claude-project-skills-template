@@ -1,0 +1,137 @@
+name: claude-md
+kind: methodology
+version: "1.0.0"
+description: "Methodology for authoring and maintaining CLAUDE.md. Enforces brevity, relevance, and structure."
+severity: high
+tags:
+  - documentation
+  - claude-md
+  - repo-hygiene
+  - authoring
+
+purpose: |
+  Durable guidance for editing CLAUDE.md that survives project customization.
+  The guide (patterns/anti-patterns) is the primary value — it tells Claude
+  HOW to edit. The linter (lint-claude-md.sh) is a safety net for quantifiable
+  rules.
+
+  CLAUDE.md is the project's most-read file. Every line must earn its place.
+
+owns:
+  - "CLAUDE.md content quality and structure (outside auto-generated markers)"
+  - "CLAUDE.md line budget and relevance standards"
+  - "Lint checks for quantifiable CLAUDE.md rules"
+
+permissions:
+  - "You MUST follow the 80% relevance test before adding content"
+  - "You MUST NOT hand-edit content between SKILLS_TABLE markers"
+  - "You MUST run 'task docs:lint-claude-md' after editing CLAUDE.md"
+
+entry_points:
+  - command: "task docs:lint-claude-md"
+    description: "Validate CLAUDE.md structure and content rules"
+
+patterns:
+  - id: relevance-threshold
+    description: "80% rule — if <80% of sessions use a line, move it out"
+    example: |
+      # Good: "Prioritize correctness over cleverness." (used every session)
+      # Bad: "To add a new validator type, see docs/validators.md" (rare task)
+
+  - id: behavioral-near-top
+    description: "Persona and working style in first ~10 lines after title"
+    example: |
+      # claude-project-skills-template
+      Template repository for organizing Claude Code skills...
+      Prioritize correctness over cleverness. Ask before architectural changes.
+      Built with: Bash, Task (go-task), yq, YAML
+
+  - id: tech-stack-declaration
+    description: "'Built with:' line after behavioral instructions"
+    example: |
+      Built with: Bash, Task (go-task), yq, YAML
+
+  - id: structure-as-dirs-only
+    description: "3-5 key directories, no file trees"
+    example: |
+      ## Project Structure
+      ```
+      .claude/skills/     — Skill definitions (one folder per skill)
+      taskfiles/          — Task runner configs and scripts
+      docs/               — Generated reference + contributing guides
+      ```
+
+  - id: target-line-count
+    description: "Under ~120 lines total"
+    example: |
+      Keep CLAUDE.md focused. If a section grows beyond a few lines,
+      it probably belongs in docs/ as a reference document.
+
+  - id: auto-gen-with-markers
+    description: "HTML comment markers for generated sections"
+    example: |
+      <!-- SKILLS_TABLE_START -->
+      (auto-generated table — do not hand-edit)
+      <!-- SKILLS_TABLE_END -->
+
+  - id: reference-in-docs
+    description: "Inline tables >5 rows belong in docs/, not CLAUDE.md"
+    example: |
+      # Instead of a 20-row table in CLAUDE.md:
+      > Full details: [docs/skills/REFERENCE.md](docs/skills/REFERENCE.md)
+
+  - id: local-overrides
+    description: "CLAUDE.local.md for personal tweaks (gitignored)"
+    example: |
+      # Personal preferences go in CLAUDE.local.md, not CLAUDE.md
+      # CLAUDE.local.md is gitignored and per-developer
+
+anti_patterns:
+  - id: full-directory-trees
+    why_bad: "Claude discovers structure via tools; trees bloat the file and go stale"
+    detect: "Lines containing box-drawing characters: ├ └ │"
+
+  - id: inline-reference-tables
+    why_bad: "Large tables dominate context; reference material belongs in docs/"
+    detect: "Tables with >5 data rows inside CLAUDE.md"
+
+  - id: onboarding-content
+    why_bad: "Getting Started / Installation / Customizing sections are for README, not CLAUDE.md"
+    detect: "Headings like '## Getting Started', '## Installation', '## Customizing'"
+
+  - id: contributing-single-links
+    why_bad: "A section that's just a link wastes a heading; inline the link instead"
+    detect: "## Contributing section with only a link to docs/"
+
+  - id: duplicate-information
+    why_bad: "Same content in multiple places drifts and confuses"
+    detect: "Content that appears in both CLAUDE.md and another file"
+
+  - id: over-documenting-structure
+    why_bad: "Claude can read file trees on demand; documenting every file is noise"
+    detect: "File-level listings like 'scripts/foo.sh — does X'"
+
+procedure:
+  - step: "Read current CLAUDE.md"
+    detail: "Note the current line count and overall structure"
+    commands:
+      - "wc -l CLAUDE.md"
+
+  - step: "Apply 80% relevance test"
+    detail: "Ask: will 80%+ of sessions use this line? If not, move it to docs/"
+
+  - step: "Check if reference material"
+    detail: "If adding a table, list, or detailed reference — put it in docs/ and link"
+
+  - step: "Make the edit"
+    detail: "Follow patterns above. Keep behavioral instructions near top."
+
+  - step: "Verify line count"
+    detail: "Ensure CLAUDE.md stays under ~120 lines"
+    commands:
+      - "wc -l CLAUDE.md"
+
+  - step: "Run linter"
+    detail: "Validate quantifiable rules pass"
+    commands:
+      - "task docs:lint-claude-md"

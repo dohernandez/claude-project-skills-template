@@ -1,0 +1,44 @@
+# Collaboration: skill dependencies and composition
+
+name: claude-md
+version: "1.0.0"
+
+dependencies:
+  - skill: docs-refresh
+    direction: outbound
+    required: false
+    reason: "After editing CLAUDE.md, docs-refresh may need to update the skills table"
+
+composition:
+  - when: "Editing CLAUDE.md content (outside auto-generated markers)"
+    sequence:
+      - claude-md
+      - docs-refresh  # only if skills table affected
+
+  - when: "Restructuring CLAUDE.md"
+    sequence:
+      - claude-md
+
+triggers:
+  - pattern: "edit CLAUDE.md|update CLAUDE.md|restructure CLAUDE.md|CLAUDE.md too long"
+    suggest: claude-md
+  - condition: "CLAUDE.md being edited or restructured"
+    action: "Follow claude-md patterns for content quality"
+
+complements:
+  - skill: docs-refresh
+    relationship: "Sibling — both work on CLAUDE.md, different sections. claude-md owns content outside markers; docs-refresh owns the skills table between markers."
+  - skill: create-skill
+    relationship: "After creating a skill, docs-refresh updates the table; claude-md ensures surrounding content stays clean"
+
+boundaries:
+  owns:
+    - "CLAUDE.md content quality, style, and structure"
+    - "CLAUDE.md sections outside auto-generated markers"
+    - "Line budget and relevance enforcement"
+  defers_to:
+    - "Skills table between markers -> docs-refresh"
+    - "REFERENCE.md generation -> docs-refresh"
+    - "Committing changes -> commit"
+  extension_points:
+    - "Additional lint checks can be added to lint-claude-md.sh"
