@@ -38,6 +38,7 @@ Each skill is a folder under `.claude/skills/` containing four canonical files:
 | `bugfix` | methodology | Structured debugging methodology for fixing bugs. Ensures bugs are properly u... | no |
 | `claude-md` | methodology | Methodology for authoring and maintaining CLAUDE.md. Enforces brevity, releva... | no |
 | `task` | methodology | Structured implementation methodology for non-bugfix work (features, chores, ... | no |
+| `taskfile-namespaces` | methodology | Methodology to audit and regroup Taskfile (go-task) namespaces: inventory eve... | no |
 | `docs-refresh` | gate | Auto-generate skill reference docs and keep CLAUDE.md skills table in sync. | yes |
 | `setup` | helper | Project setup and environment verification for ci-core-e2e-runner. | yes |
 | `workflow-setup` | helper | Setup development branch and workflow context for task-based workflows. | no |
@@ -232,6 +233,36 @@ Structured implementation methodology for non-bugfix work (features, chores, ref
 - not-reviewing-changes: Skipping the diff review before considering work done
 - vague-scope: Scope defined but too vague to implement
 - plan-without-files: Plan doesn't specify which files to change
+
+### `taskfile-namespaces`
+
+**Kind:** methodology | **Version:** 1.0.0 | **Severity:** medium
+
+Methodology to audit and regroup Taskfile (go-task) namespaces: inventory every task, find its users, give one membership rule, rename through forwarding shims, and wrap the scripts CI runs. Use when task groups grow messy or CI calls scripts directly.
+
+**Owns:**
+
+**Anti-patterns:**
+- alias-for-old-name: Keep an old name with a task alias
+- remove-on-repo-search-only: Remove a task after a search of one repo only
+- check-means-two-things: Use one verb for tree rules and for script tests
+- catch-all-namespace: Put unrelated tasks in one shared namespace
+- lint-variant-off-the-gate: Keep lint tasks that differ from the CI gate
+- rename-ci-job: Rename a CI job while renaming tasks
+- move-scripts-with-tasks: Move script files in the same change as task names
+
+**Sharp edges:**
+- alias-stays-in-namespace: A task alias gets the prefix of its own namespace
+- exit-code-201: Task exits 201 when a command fails, not with the script's exit code
+- command-echo-on-stderr: Task prints each command, with vars filled in, on stderr
+- list-hides-tasks-without-desc: `task --list` shows only tasks with a desc
+- ci-runs-hooks-by-id: A CI job runs pre-commit hooks by id from an allowlist
+- required-check-is-job-name: Branch protection matches the job name, not the command
+- scripts-read-taskfile-paths: A script or hook reads a Taskfile by its path
+- callers-outside-the-repo: Another repo, an IDE config or a watch config calls a task
+- workflow-runs-other-branch-scripts: A workflow checks out another branch and runs that branch's scripts
+- privileged-job-new-action: Adding a Task install action to a job that holds strong credentials
+- byte-class-grep-in-c-locale: A grep bracket class with multi-byte characters under LC_CTYPE=C
 
 ---
 

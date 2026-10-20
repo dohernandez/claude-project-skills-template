@@ -1,0 +1,54 @@
+# Collaboration: skill dependencies and composition
+
+name: taskfile-namespaces
+version: "1.0.0"
+
+dependencies:
+  - skill: task
+    direction: outbound
+    required: false
+    reason: "The implementation of an accepted proposal is normal task work"
+  - skill: claude-md
+    direction: outbound
+    required: false
+    reason: "CLAUDE.md lists commands; renamed tasks change that list"
+  - skill: docs-refresh
+    direction: outbound
+    required: false
+    reason: "Generated docs can name tasks; refresh them after a rename"
+
+composition:
+  - when: "Reviewing or regrouping the task namespaces of a repo"
+    sequence:
+      - taskfile-namespaces
+      - task  # only after the owner accepts the proposal
+
+  - when: "Making CI call tasks instead of scripts"
+    sequence:
+      - taskfile-namespaces
+      - task
+
+triggers:
+  - pattern: "task groups|task namespaces|Taskfile cleanup|regroup tasks|rename tasks|CI runs scripts directly"
+    suggest: taskfile-namespaces
+  - condition: "A change renames, moves or removes a task that other files call"
+    action: "Follow the shim migration and the name guard in taskfile-namespaces"
+
+complements:
+  - skill: task
+    relationship: "taskfile-namespaces gives the proposal; task carries out each migration step"
+  - skill: claude-md
+    relationship: "Update the command list in CLAUDE.md in the step that moves callers"
+
+boundaries:
+  owns:
+    - "Task inventory, verdicts, membership rule and name map"
+    - "Shim migration and the task-name guard"
+    - "The CI group that wraps workflow scripts"
+  defers_to:
+    - "Implementation of each step -> task"
+    - "CLAUDE.md content -> claude-md"
+    - "Committing changes -> commit"
+    - "Opening pull requests -> pr-create"
+  extension_points:
+    - "Add a repo-specific verb to closed-verb-list only with a written meaning"

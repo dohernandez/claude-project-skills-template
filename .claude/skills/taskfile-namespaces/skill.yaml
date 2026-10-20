@@ -1,0 +1,204 @@
+name: taskfile-namespaces
+kind: methodology
+version: "1.0.0"
+description: "Methodology to audit and regroup Taskfile (go-task) namespaces: inventory every task, find its users, give one membership rule, rename through forwarding shims, and wrap the scripts CI runs. Use when task groups grow messy or CI calls scripts directly."
+severity: medium
+tags:
+  - taskfile
+  - go-task
+  - ci
+  - repo-hygiene
+  - refactoring
+
+purpose: |
+  Clean up the task groups of a repository that runs every command through
+  `task`. The output is a proposal: an inventory with a verdict for each task,
+  one membership rule, a full old-to-new name map, a group for the scripts
+  that CI runs, and a migration plan. The migration keeps every caller
+  working while names change.
+
+  Use it as a read-only review first. Change the repository only after the
+  owner accepts the proposal.
+
+owns:
+  - "Task inventory, caller search and per-task verdicts"
+  - "The namespace membership rule and the verb list"
+  - "The old-to-new name map and the shim migration"
+  - "The CI group that wraps workflow scripts"
+
+permissions:
+  - "You MUST find the callers of a task before you give it a verdict"
+  - "You MUST NOT remove a task that has a caller in this repo or in a known sibling repo"
+  - "You MUST NOT change a CI job name or a pre-commit hook id as part of a rename"
+  - "You MUST keep an old task name working (shim) until every caller moves"
+  - "You MUST test the Task behavior the migration needs (shims, exit codes, stdin) on a scratch Taskfile"
+
+references:
+  - "go-task style guide: https://taskfile.dev/docs/styleguide"
+  - "go-task includes, internal, aliases: https://taskfile.dev/docs/guide/includes"
+  - "Kubernetes verify/update pairs: https://github.com/kubernetes/kubernetes/blob/master/hack/make-rules/verify.sh"
+  - "Scripts to Rule Them All: https://github.com/github/scripts-to-rule-them-all"
+  - "Arduino workflow templates call task: https://github.com/arduino/tooling-project-assets/tree/main/workflow-templates"
+  - "Required checks match job names: https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches"
+  - "Untrusted input in workflows: https://docs.github.com/en/actions/reference/security/secure-use"
+
+patterns:
+  - id: inventory-from-task-itself
+    description: "Get the task list from Task, not by reading YAML by hand"
+    example: |
+      task --list-all --json > tasks.json      # public tasks, with aliases
+      # --list-all omits internal tasks: parse the Taskfiles for `internal: true`
+      # and for task-to-task calls (`task:` in cmds, `deps:`).
+
+  - id: users-by-caller-kind
+    description: "Search every file for each full task name, then sort the hits by caller kind"
+    example: |
+      Caller kinds: pre-commit hooks, CI workflows, CI helper scripts, agent skills
+      and commands, docs, READMEs, other Taskfiles, scripts, watch configs (air),
+      IDE configs (.vscode), sibling repositories.
+      Match the full name as a whole word: `ns:test:unit` must not match `ns:test:unit:watch`.
+
+  - id: one-verdict-per-task
+    description: "Give each task exactly one verdict, with the evidence"
+    example: |
+      keep     - right place, right name
+      rename   - same namespace, better name
+      move     - other namespace
+      merge    - two names for one action, or copies that differ only by a var
+      internal - only other tasks call it: `internal: true`
+      remove   - no caller anywhere (say what it does first)
+
+  - id: membership-rule
+    description: "Subject namespaces, plus a small set of verb namespaces for whole-repo work"
+    example: |
+      1. A task goes in the namespace of the thing it acts on (app, db, docker, docs, release, ci).
+      2. Work on the whole code base or a whole test tier uses a verb namespace:
+         test, coverage, lint, check, gen.
+      3. The test of a repo script goes in the namespace of that script: <subject>:test[:<script>].
+      4. A helper that only other tasks call is `internal: true`.
+      5. Modifiers follow the verb in a fixed order: <verb>[:<variant>][:watch].
+      6. A shared tool area with several providers gets provider subgroups only
+         when a task is provider-specific (agents:claude:*, agents:codex:*);
+         a provider-neutral task has no subgroup.
+
+  - id: closed-verb-list
+    description: "One verb has one meaning; write the list down"
+    example: |
+      build    compile a binary or image
+      run      run a process
+      test     run tests
+      check    read the tree and fail on a broken rule (no writes)
+      lint     the linter gate (lint:fix writes)
+      gen      rewrite committed generated files
+      coverage measure coverage
+
+  - id: ci-group
+    description: "One task for each script that a workflow runs"
+    example: |
+      ci:<script>        runs the script (inputs by `--` args and env)
+      ci:test:<script>   runs the script's own tests
+      Keep Actions-only glue (step summary, GITHUB_OUTPUT, context logs) in the YAML.
+      For each task, record: inputs, secrets, side effects, and whether it can run
+      locally (read-only, dry-run only, or CI only).
+
+  - id: forwarding-shim
+    description: "Keep an old name as a task with no desc that prints its new name and calls the new task"
+    example: |
+      # old Taskfile (namespace `common`)
+      test:unit:
+        cmds:
+          - cmd: echo "renamed: use test:unit" >&2
+            silent: true
+          - task: :test:unit
+      # CLI vars, `-- args` (CLI_ARGS), failure and `--dry` all pass through.
+      # No `desc`, so `task --list` hides it; `--list-all` still shows it.
+
+  - id: name-guard
+    description: "A check that every task name in the repo resolves"
+    example: |
+      check:task-names reads `task --list-all --json` and fails on any
+      `task <name>` in hooks, workflows, docs, skills, scripts and watch configs
+      that does not exist. Phase 1: warn on shim names. Phase 2: fail on them.
+
+  - id: migration-in-steps
+    description: "Guards, then new names with shims, then callers, then CI, then removals"
+    example: |
+      1. Guards first: the name guard; fix stale names it finds.
+      2. New Taskfiles; move definitions; shims at every old name.
+      3. Move callers: hooks (keep ids), docs, skills, watch and IDE configs, CI run: lines.
+      4. Workflows call tasks: add the Task install step; job names stay.
+      5. Remove shims and dead tasks, in their own PR, after callers in other repos move.
+
+  - id: record-the-decision
+    description: "Write the accepted rule and the name map into an ADR in the PR that makes the change"
+    example: |
+      docs/adr/NNN-task-namespaces.md: context, the membership rule, the verb list,
+      the old -> new map, and the shim removal condition.
+
+anti_patterns:
+  - id: alias-for-old-name
+    description: "Keep an old name with a task alias"
+    why_bad: "A task alias is prefixed with its own namespace, so it cannot keep a name from another namespace"
+    detect: "An alias with colons, such as `aliases: [common:test:unit]` in namespace `test`"
+
+  - id: remove-on-repo-search-only
+    description: "Remove a task after a search of one repo only"
+    why_bad: "Other repos, IDE configs and watch configs call tasks too; a search of one repo misses them"
+    detect: "A remove verdict with no search of sibling repos, .vscode and air configs"
+
+  - id: check-means-two-things
+    description: "Use one verb for tree rules and for script tests"
+    why_bad: "When `check:x` sometimes reads the tree and sometimes runs a script's tests, nobody knows what a check costs or proves"
+    detect: "check:* tasks that only run *.test.sh files"
+
+  - id: catch-all-namespace
+    description: "Put unrelated tasks in one shared namespace"
+    why_bad: "A `common` or `misc` namespace grows without a rule, and every hook that watches its Taskfile fires on every edit"
+    detect: "One namespace with a large share of all tasks, or hook `files:` patterns that name one shared Taskfile"
+
+  - id: lint-variant-off-the-gate
+    description: "Keep lint tasks that differ from the CI gate"
+    why_bad: "A lint task with other flags than the CI gate gives a different answer and teaches people to ignore the gate"
+    detect: "Several lint tasks that call the linter with different tags, configs or baselines"
+
+  - id: rename-ci-job
+    description: "Rename a CI job while renaming tasks"
+    why_bad: "Branch protection matches the job name; a renamed job leaves a required check that never reports"
+    detect: "A diff that changes `name:` of a job listed in the rulesets"
+
+  - id: move-scripts-with-tasks
+    description: "Move script files in the same change as task names"
+    why_bad: "Hooks, workflows and docs name script paths; moving files and names in one change doubles the blast radius"
+    detect: "One PR that renames tasks and moves script files"
+
+procedure:
+  - step: "Export the base"
+    detail: "Read from the target branch, not a working tree with local edits"
+    commands:
+      - "git fetch -q origin && git archive origin/<branch> | tar -x -C <scratch>"
+
+  - step: "Inventory every task"
+    detail: "Public tasks from Task, internal tasks and task-to-task calls from the YAML"
+    commands:
+      - "task --list-all --json > tasks.json"
+
+  - step: "Read what each task runs"
+    detail: "Open the script each task calls. Use `task --dry <name> -- PROBE` for templated commands."
+
+  - step: "Find the users of each task"
+    detail: "Search this repo, the sibling repos, hooks, workflows, docs, skills, watch and IDE configs. Find names that do not exist too."
+
+  - step: "List the workflow scripts"
+    detail: "Every script a workflow or composite action runs, with its job, inputs, secrets, side effects and whether a task wraps it"
+
+  - step: "Check CI capability"
+    detail: "Which jobs install Task, at which version, and how long the install takes. List the required check names from the rulesets."
+
+  - step: "Probe Task behavior"
+    detail: "On a scratch Taskfile: shim forwarding of vars and CLI_ARGS, exit codes, stdin, `--dry`, alias prefixes, namespace default task"
+
+  - step: "Write the proposal"
+    detail: "Inventory with verdicts, the membership rule, the full name map, the CI group, removals with evidence, the migration, open questions for the owner"
+
+  - step: "After acceptance, implement in steps"
+    detail: "Follow migration-in-steps. Add the ADR to the first PR that changes names."
