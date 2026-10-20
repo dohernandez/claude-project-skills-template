@@ -27,6 +27,7 @@ docs/               — Generated reference + contributing guides
 | `bugfix` | methodology | Structured debugging methodology for fixing bugs. Ensures bugs are properly u... |
 | `claude-md` | methodology | Methodology for authoring and maintaining CLAUDE.md. Enforces brevity, releva... |
 | `task` | methodology | Structured implementation methodology for non-bugfix work (features, chores, ... |
+| `taskfile-namespaces` | methodology | Methodology to audit and regroup Taskfile (go-task) namespaces: inventory eve... |
 | `docs-refresh` (`/docs-refresh`) | gate | Auto-generate skill reference docs and keep CLAUDE.md skills table in sync. |
 | `setup` (`/setup`) | helper | Project setup and environment verification for ci-core-e2e-runner. |
 | `workflow-setup` | helper | Setup development branch and workflow context for task-based workflows. |

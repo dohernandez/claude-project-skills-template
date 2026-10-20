@@ -1,0 +1,82 @@
+# Sharp edges for taskfile-namespaces
+#
+# NOTE: The `detect` field is informational only - it shows how to manually
+# check for the edge case. These are NOT automatically enforced.
+
+edges:
+  - id: alias-stays-in-namespace
+    description: "A task alias gets the prefix of its own namespace"
+    detect: "task --list-all --json | jq '.tasks[].aliases'"
+    impact: "An alias cannot keep an old name from another namespace; callers of the old name fail"
+    fix: "Keep the old name as a forwarding shim task in the old namespace"
+    severity: critical
+
+  - id: exit-code-201
+    description: "Task exits 201 when a command fails, not with the script's exit code"
+    detect: "A caller that branches on `$?` after `task <name>`"
+    impact: "A caller that tells failure kinds apart by exit code sees only 201"
+    fix: "Call `task -x <name>` (pass-through exit code) where the caller reads the code"
+    severity: high
+
+  - id: command-echo-on-stderr
+    description: "Task prints each command, with vars filled in, on stderr"
+    detect: "A secret passed as a Task var: `task x TOKEN=...`"
+    impact: "The secret appears in logs; captured stdout stays clean"
+    fix: "Pass secrets in the environment only. Capture output with `$(task --silent x)`."
+    severity: high
+
+  - id: list-hides-tasks-without-desc
+    description: "`task --list` shows only tasks with a desc"
+    detect: "Compare `task --list` with `task --list-all`"
+    impact: "An inventory from --list misses tasks; a shim without desc is hidden there"
+    fix: "Inventory with --list-all --json, and parse internal tasks from the YAML"
+    severity: medium
+
+  - id: ci-runs-hooks-by-id
+    description: "A CI job runs pre-commit hooks by id from an allowlist"
+    detect: "grep -n 'pre-commit run' .github/workflows/*.yml"
+    impact: "A changed hook id drops that check from CI with no error"
+    fix: "Change the hook entry, never the hook id"
+    severity: critical
+
+  - id: required-check-is-job-name
+    description: "Branch protection matches the job name, not the command"
+    detect: "Compare ruleset required checks with job `name:` values"
+    impact: "A renamed job leaves a required check that never reports; merges block"
+    fix: "Keep every job name. Some required checks are check runs a script creates: keep those names too."
+    severity: critical
+
+  - id: scripts-read-taskfile-paths
+    description: "A script or hook reads a Taskfile by its path"
+    detect: "grep -rn 'Taskfile.yaml' --include='*.sh' --include='*.py' . ; grep -n 'Taskfile' .pre-commit-config.yaml"
+    impact: "A moved task breaks a checker that greps the old file, or a hook stops firing"
+    fix: "Change those paths in the same step that moves the definitions"
+    severity: high
+
+  - id: callers-outside-the-repo
+    description: "Another repo, an IDE config or a watch config calls a task"
+    detect: "Search sibling checkouts, .vscode/tasks.json and air *.toml for each name"
+    impact: "A removed or renamed task breaks a pipeline that this repo cannot test"
+    fix: "Keep the shim until the other repo moves; ask its owner to change the caller"
+    severity: high
+
+  - id: workflow-runs-other-branch-scripts
+    description: "A workflow checks out another branch and runs that branch's scripts"
+    detect: "Workflows that `git checkout` a computed branch before calling scripts"
+    impact: "An older branch has no new task; the call fails there"
+    fix: "Keep a fallback: call the task only when `task --list-all` has it"
+    severity: medium
+
+  - id: privileged-job-new-action
+    description: "Adding a Task install action to a job that holds strong credentials"
+    detect: "Jobs with deploy keys or tokens that bypass branch rules"
+    impact: "A third-party action runs next to the credential"
+    fix: "Pin the action to a full commit SHA, or keep a direct script call there; ask the owner"
+    severity: high
+
+  - id: byte-class-grep-in-c-locale
+    description: "A grep bracket class with multi-byte characters under LC_CTYPE=C"
+    detect: "grep '[├└│]' with `locale` showing LC_CTYPE=\"C\""
+    impact: "The class matches single bytes, so other UTF-8 characters (— ≤) match too"
+    fix: "Use alternation (`grep -E '├|└|│'`) or set a UTF-8 locale"
+    severity: low
